@@ -1,0 +1,43 @@
+# Build results
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+**/[Bb]in/
+**/[Oo]bj/
+
+# Rider / VS Code / VS
+.idea/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+*.cache
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# Logs
+*.log
+
+# OS junk
+Thumbs.db
+.DS_Store
+
+# WebView2 cache/runtime
+**/EBWebView/
+
+# Settings
+appsettings.*.json
+*.local.json
+
+# Coverage / test artifacts
+TestResults/
+coverage/
+
+# Publish output
+Publish/
+*/publish/
