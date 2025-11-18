@@ -10,7 +10,8 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         WindowStyle="ToolWindow"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Loaded="OnWindowLoaded">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -34,8 +35,10 @@
                                   IsChecked="{Binding AlwaysOnTop}" />
                         <CheckBox Content="Enable click-through by default"
                                   IsChecked="{Binding ClickThroughEnabled}" />
-                        <CheckBox Content="Hide ads on tracker"
+                        <CheckBox x:Name="HideAdsCheckBox"
+                                  Content="Hide ads on tracker"
                                   IsChecked="{Binding HideAds}"
+                                  Checked="OnHideAdsChecked"
                                   ToolTip="Injects lightweight CSS/JS to remove common ad containers" />
                         <StackPanel Orientation="Horizontal"
                                     VerticalAlignment="Center"

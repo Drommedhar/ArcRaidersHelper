@@ -6,6 +6,8 @@ namespace OverlayApp;
 
 public partial class SettingsWindow : Window
 {
+    private bool _hideAdsPromptReady;
+
     public SettingsWindow(UserSettings draft)
     {
         InitializeComponent();
@@ -16,6 +18,11 @@ public partial class SettingsWindow : Window
     public SettingsViewModel ViewModel { get; }
 
     public UserSettings? ResultSettings { get; private set; }
+
+    private void OnWindowLoaded(object sender, RoutedEventArgs e)
+    {
+        _hideAdsPromptReady = true;
+    }
 
     private void OnApply(object sender, RoutedEventArgs e)
     {
@@ -34,5 +41,25 @@ public partial class SettingsWindow : Window
     {
         DialogResult = false;
         Close();
+    }
+
+    private void OnHideAdsChecked(object sender, RoutedEventArgs e)
+    {
+        if (!_hideAdsPromptReady)
+        {
+            return;
+        }
+
+        var result = MessageBox.Show(this,
+            "ArcTracker relies on advertising to continue operating. Disabling ads may hurt the site experience. Do you want to continue?",
+            "ArcTracker Overlay",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes)
+        {
+            HideAdsCheckBox.IsChecked = false;
+            e.Handled = true;
+        }
     }
 }
