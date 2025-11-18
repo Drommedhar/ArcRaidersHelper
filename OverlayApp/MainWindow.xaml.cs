@@ -2,8 +2,10 @@
 using OverlayApp.Infrastructure;
 using OverlayApp.Properties;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -23,6 +25,9 @@ public partial class MainWindow : Window
     private const double ResizeBorderThickness = 12d;
     private const double MinimumWindowWidth = 400d;
     private const double MinimumWindowHeight = 300d;
+    private const string TrackerHost = "arctracker.io";
+    private const string DefaultTrackerUrl = "https://arctracker.io/";
+    private static readonly Uri DefaultTrackerUri = new(DefaultTrackerUrl);
 
     private static readonly HotkeyDefinition DefaultToggleHotkey = new(ModifierKeys.Control | ModifierKeys.Alt, Key.O);
     private static readonly HotkeyDefinition DefaultExitHotkey = new(ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.O);
@@ -34,6 +39,34 @@ public partial class MainWindow : Window
     private bool _isOverlayVisible = true;
     private MenuItem? _clickThroughMenuItem;
     private bool _suppressMenuToggleEvents;
+    private bool _adFilterInitialized;
+    private static readonly IReadOnlyList<string> AdHostKeywords = new[]
+    {
+        "doubleclick.net",
+        "googlesyndication.com",
+        "google-analytics.com",
+        "adservice.google.com",
+        "ads.pubmatic.com",
+        "scorecardresearch.com",
+        "taboola",
+        "adsystem",
+        "advertising.com",
+        "adroll",
+        "quantserve",
+        "criteo",
+        "openx.net"
+    };
+
+    private static readonly IReadOnlyList<string> AdPathKeywords = new[]
+    {
+        "/ads",
+        "/adserver",
+        "banner",
+        "sponsor",
+        "promoted",
+        "gampad",
+        "doubleclick"
+    };
     private IntPtr _windowHandle;
     private HwndSource? _hwndSource;
     private int _baseExtendedStyle;
@@ -45,6 +78,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _settings = _settingsStore.Load();
+        if (string.IsNullOrWhiteSpace(_settings.TrackerUrl))
+        {
+            _settings.TrackerUrl = DefaultTrackerUrl;
+        }
     }
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
@@ -90,6 +127,12 @@ public partial class MainWindow : Window
         PersistWindowPlacementToSettings();
         Settings.Default.Save();
         _settingsStore.Save(_settings);
+        if (OverlayView?.CoreWebView2 is not null)
+        {
+            OverlayView.CoreWebView2.WebResourceRequested -= HandleWebResourceRequested;
+            OverlayView.CoreWebView2.SourceChanged -= HandleSourceChanged;
+            OverlayView.CoreWebView2.NavigationCompleted -= HandleNavigationCompleted;
+        }
         _hotkeyManager?.Dispose();
         _hwndSource?.RemoveHook(WndProc);
     }
@@ -240,6 +283,11 @@ public partial class MainWindow : Window
         OverlayView.CoreWebView2.NewWindowRequested += HandleNewWindowRequested;
         OverlayView.CoreWebView2.DOMContentLoaded -= HandleDomContentLoaded;
         OverlayView.CoreWebView2.DOMContentLoaded += HandleDomContentLoaded;
+        OverlayView.CoreWebView2.SourceChanged -= HandleSourceChanged;
+        OverlayView.CoreWebView2.SourceChanged += HandleSourceChanged;
+        OverlayView.CoreWebView2.NavigationCompleted -= HandleNavigationCompleted;
+        OverlayView.CoreWebView2.NavigationCompleted += HandleNavigationCompleted;
+        EnsureAdBlockingFilter();
     }
 
     private void HandleNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
@@ -462,20 +510,26 @@ public partial class MainWindow : Window
 
     private void NavigateToTracker()
     {
-        if (string.IsNullOrWhiteSpace(_settings.TrackerUrl))
-        {
-            _settings.TrackerUrl = "https://arctracker.io";
-        }
+        var trackerUri = GetTrackerUri();
+        OverlayView.Source = trackerUri;
+    }
 
+    private Uri GetTrackerUri()
+    {
         if (Uri.TryCreate(_settings.TrackerUrl, UriKind.Absolute, out var uri))
         {
-            OverlayView.Source = uri;
+            return uri;
         }
+
+        _settings.TrackerUrl = DefaultTrackerUrl;
+        _settingsStore.Save(_settings);
+        return DefaultTrackerUri;
     }
 
     private void ApplySettingsFromDialog(UserSettings updated)
     {
         var previousClickThroughState = _settings.ClickThroughEnabled;
+        var previousHideAds = _settings.HideAds;
 
         _settings.ToggleHotkey = updated.ToggleHotkey;
         _settings.ExitHotkey = updated.ExitHotkey;
@@ -484,8 +538,9 @@ public partial class MainWindow : Window
         _settings.AlwaysOnTop = updated.AlwaysOnTop;
         _settings.OverlayOpacity = updated.OverlayOpacity;
         _settings.ClickThroughOverlayOpacity = updated.ClickThroughOverlayOpacity;
-        _settings.TrackerUrl = updated.TrackerUrl;
         _settings.ClickThroughEnabled = updated.ClickThroughEnabled;
+        _settings.HideAds = updated.HideAds;
+        _settings.HideAds = updated.HideAds;
 
         RegisterHotkeys();
         NavigateToTracker();
@@ -502,6 +557,12 @@ public partial class MainWindow : Window
         ApplyTopmostSetting();
         UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
         _ = ApplyWebContentStylingAsync();
+
+        if (previousHideAds != _settings.HideAds)
+        {
+            EnsureAdBlockingFilter();
+            OverlayView?.Reload();
+        }
 
         _settingsStore.Save(_settings);
     }
@@ -584,6 +645,16 @@ public partial class MainWindow : Window
 
             var opacity = GetOverlayOpacity(clickThroughActive);
             var opacityText = opacity.ToString(CultureInfo.InvariantCulture);
+            var hideAdsFlag = _settings.HideAds ? "true" : "false";
+            var hideAdsCss = @"            iframe[src*=""ads"" i],
+            iframe[src*=""doubleclick"" i],
+            [class*=""ad-container"" i],
+            [class*=""banner-ad"" i],
+            [id*=""adslot"" i],
+            .adsbygoogle {
+                display: none !important;
+                visibility: hidden !important;
+            }";
             var script = $@"
 (function() {{
     try {{
@@ -605,6 +676,12 @@ public partial class MainWindow : Window
             }}
         `;
 
+        if ({hideAdsFlag}) {{
+            style.textContent += `
+{hideAdsCss}
+            `;
+        }}
+
         document.documentElement.style.background = 'transparent';
         document.body.style.background = 'transparent';
     }} catch (err) {{
@@ -618,6 +695,153 @@ public partial class MainWindow : Window
         {
             // Styling injection is best-effort; swallow WebView script errors.
         }
+    }
+
+    private void EnsureAdBlockingFilter()
+    {
+        if (_adFilterInitialized || OverlayView?.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        try
+        {
+            OverlayView.CoreWebView2.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
+            OverlayView.CoreWebView2.WebResourceRequested += HandleWebResourceRequested;
+            _adFilterInitialized = true;
+        }
+        catch
+        {
+            // Ignore filter failures; ad blocking is optional.
+        }
+    }
+
+    private void HandleWebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
+    {
+        if (!_settings.HideAds)
+        {
+            return;
+        }
+
+        if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri))
+        {
+            return;
+        }
+
+        if (!ShouldBlockRequest(uri))
+        {
+            return;
+        }
+
+        if (OverlayView?.CoreWebView2?.Environment is null)
+        {
+            return;
+        }
+
+        try
+        {
+            e.Response = OverlayView.CoreWebView2.Environment.CreateWebResourceResponse(Stream.Null, 204, "No Content", "Cache-Control: no-cache");
+        }
+        catch
+        {
+            // Swallow failures; worst case the ad loads.
+        }
+    }
+
+    private static bool ShouldBlockRequest(Uri uri)
+    {
+        var host = uri.Host.ToLowerInvariant();
+        if (AdHostKeywords.Any(host.Contains))
+        {
+            return true;
+        }
+
+        var path = uri.AbsolutePath.ToLowerInvariant();
+        if (AdPathKeywords.Any(path.Contains))
+        {
+            return true;
+        }
+
+        var query = uri.Query.ToLowerInvariant();
+        return AdPathKeywords.Any(query.Contains);
+    }
+
+    private void HandleNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (!e.IsSuccess || OverlayView?.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        if (!Uri.TryCreate(OverlayView.CoreWebView2.Source, UriKind.Absolute, out var currentUri))
+        {
+            return;
+        }
+
+        TryUpdateTrackerLocale(currentUri);
+    }
+
+    private void HandleSourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e)
+    {
+        var source = OverlayView?.CoreWebView2?.Source;
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return;
+        }
+
+        if (Uri.TryCreate(source, UriKind.Absolute, out var uri))
+        {
+            TryUpdateTrackerLocale(uri);
+        }
+    }
+
+    private void TryUpdateTrackerLocale(Uri uri)
+    {
+        if (!IsTrackerDomain(uri))
+        {
+            return;
+        }
+
+        var hasLanguage = TryGetLanguageSegment(uri, out var segment);
+        var normalizedUrl = hasLanguage
+            ? $"{DefaultTrackerUrl}{segment}"
+            : DefaultTrackerUrl;
+
+        if (string.Equals(_settings.TrackerUrl, normalizedUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _settings.TrackerUrl = normalizedUrl;
+        _settingsStore.Save(_settings);
+    }
+
+    private static bool IsTrackerDomain(Uri uri)
+    {
+        return string.Equals(uri.Host, TrackerHost, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryGetLanguageSegment(Uri uri, out string segment)
+    {
+        var firstSegment = uri.AbsolutePath
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(firstSegment) && IsLanguageSegment(firstSegment))
+        {
+            segment = firstSegment.ToLowerInvariant();
+            return true;
+        }
+
+        segment = string.Empty;
+        return false;
+    }
+
+    private static bool IsLanguageSegment(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && value.Length == 2
+            && value.All(char.IsLetter);
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

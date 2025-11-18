@@ -18,8 +18,8 @@ public partial class SettingsViewModel : ObservableObject
         ClickThroughOverlayOpacity = _workingCopy.ClickThroughOverlayOpacity;
         HideOnLaunch = _workingCopy.HideOnLaunch;
         AlwaysOnTop = _workingCopy.AlwaysOnTop;
-        TrackerUrl = _workingCopy.TrackerUrl;
         ClickThroughEnabled = _workingCopy.ClickThroughEnabled;
+        HideAds = _workingCopy.HideAds;
         ToggleHotkeyText = _workingCopy.ToggleHotkey;
         ExitHotkeyText = _workingCopy.ExitHotkey;
         ClickThroughHotkeyText = _workingCopy.ClickThroughHotkey;
@@ -35,13 +35,13 @@ public partial class SettingsViewModel : ObservableObject
     private bool _clickThroughEnabled;
 
     [ObservableProperty]
+    private bool _hideAds;
+
+    [ObservableProperty]
     private double _overlayOpacity = 1.0;
 
     [ObservableProperty]
     private double _clickThroughOverlayOpacity = 0.6;
-
-    [ObservableProperty]
-    private string _trackerUrl = "https://arctracker.io";
 
     [ObservableProperty]
     private string _toggleHotkeyText = "Ctrl+Alt+O";
@@ -61,17 +61,12 @@ public partial class SettingsViewModel : ObservableObject
             return false;
         }
 
-        if (!Uri.TryCreate(TrackerUrl, UriKind.Absolute, out _))
-        {
-            return false;
-        }
-
         updated.HideOnLaunch = HideOnLaunch;
         updated.AlwaysOnTop = AlwaysOnTop;
         updated.ClickThroughEnabled = ClickThroughEnabled;
+        updated.HideAds = HideAds;
         updated.OverlayOpacity = Math.Clamp(OverlayOpacity, 0.2, 1.0);
         updated.ClickThroughOverlayOpacity = Math.Clamp(ClickThroughOverlayOpacity, 0.1, 1.0);
-        updated.TrackerUrl = TrackerUrl;
         updated.ToggleHotkey = toggle.ToString();
         updated.ExitHotkey = exit.ToString();
         updated.ClickThroughHotkey = click.ToString();

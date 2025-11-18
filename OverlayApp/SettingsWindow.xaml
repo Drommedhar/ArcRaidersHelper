@@ -34,6 +34,9 @@
                                   IsChecked="{Binding AlwaysOnTop}" />
                         <CheckBox Content="Enable click-through by default"
                                   IsChecked="{Binding ClickThroughEnabled}" />
+                        <CheckBox Content="Hide ads on tracker"
+                                  IsChecked="{Binding HideAds}"
+                                  ToolTip="Injects lightweight CSS/JS to remove common ad containers" />
                         <StackPanel Orientation="Horizontal"
                                     VerticalAlignment="Center"
                                     Margin="0,6,0,0">
@@ -62,13 +65,6 @@
                                    Width="60"
                                    HorizontalAlignment="Right" />
                         </StackPanel>
-                    </StackPanel>
-                </GroupBox>
-
-                <GroupBox Header="Tracker">
-                    <StackPanel Margin="10,6">
-                        <TextBlock Text="URL" />
-                        <TextBox Text="{Binding TrackerUrl, Mode=TwoWay}" Margin="0,4,0,0" />
                     </StackPanel>
                 </GroupBox>
 

@@ -8,7 +8,8 @@ A lightweight WPF utility that exposes [arctracker.io](https://arctracker.io) as
 - **Fully transparent overlay frame** with per-pixel transparency so you only see the tracker content floating above your game.
 - **Instant click-through mode** (button + hotkey) that removes the header chrome, disables hit-testing, and lets the game capture mouse/keyboard while the tracker stays visible.
 - **Custom CSS injection** keeps arctracker.io transparent and applies the same opacity settings to the site content, so the overlay always blends with the game.
-- **Settings menu** (header button) to tweak hotkeys, default click-through state, opacity, topmost behavior, tracker URL, and launch visibility without editing JSON.
+- **Optional ad filtering** (toggle in Settings) adds lightweight network filtering + CSS so the tracker stays clean without extra browser extensions.
+- **Settings menu** (header button) to tweak hotkeys, default click-through state, opacity, topmost behavior, ad filtering, and launch visibility without editing JSON.
 - **Automatic persistence** of the window size/position, maximized state, click-through preference, opacity, URL, and custom hotkeys between sessions.
 
 ## Requirements
@@ -25,11 +26,12 @@ The window appears once at launch, applies your last saved placement, initialize
 
 ### Settings UI
 - Click the **Settings** button in the title bar to open an in-app modal dialog.
-- Adjust default click-through behavior, independent opacity sliders (normal vs click-through), tracker URL, or hotkey strings (`Ctrl+Alt+T` style format) and hit **Apply** to persist. The opacity sliders drive both the glass chrome and the embedded website thanks to injected CSS.
+- Adjust default click-through behavior, independent opacity sliders (normal vs click-through), ad filtering, or hotkey strings (`Ctrl+Alt+T` style format) and hit **Apply** to persist. The opacity sliders drive both the glass chrome and the embedded website thanks to injected CSS.
+- Enable **Hide ads on tracker** if you want the embedded page to block common ad hosts and DOM containers without modifying the upstream site; toggle it off if anything legitimate gets caught.
 - Invalid URLs or duplicate hotkeys are rejected with a warning so you do not end up with unusable shortcuts.
 
 ### Customizing hotkeys and placement
-User preferences live in `%APPDATA%\ArcRaidersHelper\settings.json`. You can edit this file (while the app is closed) to change hotkey combos or seed a default window size/position. Unknown or invalid hotkeys automatically fall back to the defaults listed above.
+User preferences live in `%APPDATA%\ArcRaidersHelper\settings.json`. You can edit this file (while the app is closed) to change hotkey combos or seed a default window size/position. Unknown or invalid hotkeys automatically fall back to the defaults listed above, and the overlay automatically remembers whichever language you last selected on arctracker.io.
 
 ## Project structure
 - `ArcRaidersHelper.sln` – solution container.
