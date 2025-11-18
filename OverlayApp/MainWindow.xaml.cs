@@ -4,10 +4,14 @@ using OverlayApp.Properties;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -35,6 +39,8 @@ public partial class MainWindow : Window
 
     private readonly UserSettingsStore _settingsStore = new();
     private readonly UserSettings _settings;
+    private readonly UpdateService _updateService;
+    private readonly ILogger _logger;
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
     private MenuItem? _clickThroughMenuItem;
@@ -77,6 +83,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _logger = LoggerFactory.CreateDefaultLogger();
+        var githubToken = TryLoadGitHubToken();
+        _updateService = new UpdateService(githubToken, _logger);
         _settings = _settingsStore.Load();
         if (string.IsNullOrWhiteSpace(_settings.TrackerUrl))
         {
@@ -103,6 +112,8 @@ public partial class MainWindow : Window
         {
             ShowOverlay();
         }
+
+        _ = CheckForUpdatesAsync();
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -135,6 +146,7 @@ public partial class MainWindow : Window
         }
         _hotkeyManager?.Dispose();
         _hwndSource?.RemoveHook(WndProc);
+        _updateService.Dispose();
     }
 
     private void OnHeaderMouseDown(object sender, MouseButtonEventArgs e)
@@ -843,6 +855,234 @@ public partial class MainWindow : Window
             && value.Length == 2
             && value.All(char.IsLetter);
     }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            var currentVersion = GetCurrentAppVersion();
+            var result = await _updateService.CheckForUpdatesAsync(currentVersion, CancellationToken.None).ConfigureAwait(false);
+
+            switch (result.Status)
+            {
+                case UpdateCheckStatus.Downloaded:
+                case UpdateCheckStatus.AlreadyDownloaded:
+                    PersistLatestDownloadedVersion(result.LatestVersion);
+                    await Dispatcher.InvokeAsync(() => HandleDownloadedUpdate(result));
+                    _logger.Log("UpdateCheck", $"Update available: {result.LatestVersion}; file={result.DownloadedFile}");
+                    break;
+                case UpdateCheckStatus.UpToDate:
+                    _logger.Log("UpdateCheck", "No updates available.");
+                    break;
+                case UpdateCheckStatus.Failed:
+                    _logger.Log("UpdateCheck", $"Update check failed: {result.ErrorMessage}");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Update check failed: {ex}");
+            _logger.Log("UpdateCheck", $"Unhandled exception: {ex.Message}");
+        }
+    }
+
+    private void PersistLatestDownloadedVersion(Version? version)
+    {
+        if (version is null)
+        {
+            return;
+        }
+
+        var versionString = version.ToString();
+        if (string.Equals(_settings.LastDownloadedVersion, versionString, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _settings.LastDownloadedVersion = versionString;
+        _settingsStore.Save(_settings);
+    }
+
+    private void HandleDownloadedUpdate(UpdateCheckResult result)
+    {
+        if (string.IsNullOrWhiteSpace(result.DownloadedFile))
+        {
+            return;
+        }
+
+        var extractionPath = TryExtractUpdatePackage(result.DownloadedFile, result.LatestVersion);
+        if (extractionPath is null)
+        {
+            ShowManualUpdateMessage(result);
+            return;
+        }
+
+        var versionLabel = result.LatestVersion?.ToString() ?? "latest";
+        _logger.Log("UpdateCheck", $"Update {versionLabel} downloaded; scheduling automatic install.");
+        MessageBox.Show(this,
+            $"ArcRaidersHelper will close briefly to apply update {versionLabel}. It will reopen automatically when finished.",
+            "Applying ArcRaidersHelper update",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        StartUpdateInstallerProcess(extractionPath, result.DownloadedFile, versionLabel);
+    }
+
+    private string? TryExtractUpdatePackage(string packagePath, Version? version)
+    {
+        try
+        {
+            var versionLabel = version?.ToString() ?? "latest";
+            var extractionRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "updates", "extracted");
+            Directory.CreateDirectory(extractionRoot);
+            var destination = Path.Combine(extractionRoot, versionLabel);
+
+            if (Directory.Exists(destination))
+            {
+                Directory.Delete(destination, recursive: true);
+            }
+
+            ZipFile.ExtractToDirectory(packagePath, destination);
+            return destination;
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("UpdateCheck", $"Failed to extract update package: {ex.Message}");
+            return null;
+        }
+    }
+
+    private void ShowManualUpdateMessage(UpdateCheckResult result)
+    {
+        var versionLabel = result.LatestVersion?.ToString() ?? "new";
+        var path = result.DownloadedFile ?? "<unknown>";
+        var message =
+            $"A newer version of ArcRaidersHelper ({versionLabel}) has been downloaded to:\n{path}\n\nClose the overlay and run the downloaded package to finish installing the update.";
+
+        MessageBox.Show(this,
+            message,
+            "ArcRaidersHelper update ready",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void StartUpdateInstallerProcess(string extractionPath, string packagePath, string? versionLabel)
+    {
+        try
+        {
+            var launchInfo = GetSelfLaunchInfo();
+            var targetDirectory = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var options = new UpdateScriptOptions
+            {
+                SourceDirectory = extractionPath,
+                TargetDirectory = targetDirectory,
+                ParentProcessId = Environment.ProcessId,
+                LauncherPath = launchInfo.FileName,
+                LauncherArguments = launchInfo.Arguments,
+                LogFilePath = LoggerFactory.GetLogFilePath()
+            };
+
+            var scriptPath = UpdateInstaller.LaunchUpdateScript(options);
+            _logger.Log("UpdateCheck", $"Started update installer script at {scriptPath} for version {versionLabel ?? "unknown"}.");
+            Application.Current.Dispatcher.Invoke(Application.Current.Shutdown);
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("UpdateCheck", $"Failed to start update installer: {ex.Message}");
+            ShowManualUpdateMessage(new UpdateCheckResult(UpdateCheckStatus.Downloaded, null, packagePath, ex.Message));
+        }
+    }
+
+    private static Version GetCurrentAppVersion()
+    {
+        var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+        return ParseVersionString(assembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion)
+            ?? assembly?.GetName().Version
+            ?? new Version(0, 0, 0, 0);
+    }
+
+    private static Version? ParseVersionString(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Split('+')[0].Trim();
+        if (normalized.StartsWith('v') || normalized.StartsWith('V'))
+        {
+            normalized = normalized[1..];
+        }
+
+        return Version.TryParse(normalized, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static string? TryLoadGitHubToken()
+    {
+        try
+        {
+            var baseDirectory = AppContext.BaseDirectory;
+            var candidatePath = Path.Combine(baseDirectory, "github_token.txt");
+            if (!File.Exists(candidatePath))
+            {
+                return null;
+            }
+
+            foreach (var line in File.ReadLines(candidatePath))
+            {
+                var trimmed = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith('#'))
+                {
+                    continue;
+                }
+
+                return trimmed;
+            }
+
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static ProcessLaunchInfo GetSelfLaunchInfo()
+    {
+        var processPath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(processPath))
+        {
+            throw new InvalidOperationException("Unable to determine the current process path.");
+        }
+
+        if (processPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            var entryAssembly = Assembly.GetEntryAssembly()?.Location;
+            if (string.IsNullOrWhiteSpace(entryAssembly))
+            {
+                throw new InvalidOperationException("Unable to determine the ArcRaidersHelper assembly path.");
+            }
+
+            return new ProcessLaunchInfo(processPath, $"\"{entryAssembly}\"");
+        }
+
+        return new ProcessLaunchInfo(processPath, string.Empty);
+    }
+
+    private sealed record ProcessLaunchInfo(string FileName, string Arguments);
+
+    private static bool IsDevelopmentEnvironment()
+    {
+        var baseDirectory = AppContext.BaseDirectory ?? string.Empty;
+        return baseDirectory.Contains(Path.Combine("bin", "Debug"), StringComparison.OrdinalIgnoreCase)
+            || baseDirectory.Contains(Path.Combine("bin", "Release"), StringComparison.OrdinalIgnoreCase);
+    }
+
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {

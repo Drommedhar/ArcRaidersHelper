@@ -33,6 +33,7 @@ Thumbs.db
 # Settings
 appsettings.*.json
 *.local.json
+**/github_token.txt
 
 # Coverage / test artifacts
 TestResults/

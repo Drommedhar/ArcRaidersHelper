@@ -11,6 +11,7 @@ A lightweight WPF utility that exposes [arctracker.io](https://arctracker.io) as
 - **Optional ad filtering** (toggle in Settings) adds lightweight network filtering + CSS so the tracker stays clean without extra browser extensions.
 - **Settings menu** (header button) to tweak hotkeys, default click-through state, opacity, topmost behavior, ad filtering, and launch visibility without editing JSON.
 - **Automatic persistence** of the window size/position, maximized state, click-through preference, opacity, URL, and custom hotkeys between sessions.
+- **Automatic update checks** on launch fetch the latest GitHub release, download the newest package into `%LOCALAPPDATA%\ArcRaidersHelper\updates`, and (outside dev builds) unpack the ZIP directly over your install before restarting the overlay.
 
 ## Requirements
 - Windows 10 20H1 (build 19041) or newer.
@@ -29,6 +30,13 @@ The window appears once at launch, applies your last saved placement, initialize
 - Adjust default click-through behavior, independent opacity sliders (normal vs click-through), ad filtering, or hotkey strings (`Ctrl+Alt+T` style format) and hit **Apply** to persist. The opacity sliders drive both the glass chrome and the embedded website thanks to injected CSS.
 - Enable **Hide ads on tracker** if you want the embedded page to block common ad hosts and DOM containers without modifying the upstream site; toggle it off if anything legitimate gets caught.
 - Invalid URLs or duplicate hotkeys are rejected with a warning so you do not end up with unusable shortcuts.
+
+### Automatic updates
+- At startup the overlay issues a HEAD request to [`https://github.com/Drommedhar/ArcRaidersHelper/releases/latest`](https://github.com/Drommedhar/ArcRaidersHelper/releases/latest) to discover the newest tag (even if the page itself is blocked) and then queries the GitHub API for release metadata.
+- When a newer release exists, the preferred asset (MSI/EXE/ZIP) is downloaded to `%LOCALAPPDATA%\ArcRaidersHelper\updates` and extracted to a staging folder. If the app is running from a published install (not `bin/Debug`), it relaunches itself in headless "apply update" mode, copies the new binaries over the current directory without touching `%APPDATA%`, and starts the updated overlay.
+- Development builds (anything running from `bin/Debug` or `bin/Release`) never self-overwrite; they still download the ZIP and leave it for manual installation so your workspace stays intact.
+- If the release feed cannot be reached (offline, firewalls, rate limits) the overlay simply skips the update cycle and tries again the next time it starts.
+- **Private repo testing:** drop a `github_token.txt` file next to `OverlayApp.exe` (or copy `OverlayApp/github_token.txt.sample` to that name) and paste a personal access token that can read the repo. The file is optional, ignored by git, and copied to the build output only when it exists, so internal tokens never leak into source control.
 
 ### Customizing hotkeys and placement
 User preferences live in `%APPDATA%\ArcRaidersHelper\settings.json`. You can edit this file (while the app is closed) to change hotkey combos or seed a default window size/position. Unknown or invalid hotkeys automatically fall back to the defaults listed above, and the overlay automatically remembers whichever language you last selected on arctracker.io.

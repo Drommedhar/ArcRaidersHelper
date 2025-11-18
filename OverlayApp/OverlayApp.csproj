@@ -8,6 +8,12 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+<PropertyGroup>
+  <AssemblyVersion>0.1.0.0</AssemblyVersion>
+  <FileVersion>0.1.0.0</FileVersion>
+  <InformationalVersion>0.1</InformationalVersion>
+</PropertyGroup>  
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2592.51" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
@@ -27,6 +33,10 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="github_token.txt" CopyToOutputDirectory="PreserveNewest" Condition="Exists('github_token.txt')" />
   </ItemGroup>
 
 </Project>
