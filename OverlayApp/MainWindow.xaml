@@ -49,42 +49,67 @@
                     CornerRadius="20,20,0,0"
                     MouseLeftButtonDown="OnHeaderMouseDown">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Left">
-                        <TextBlock Text="ArcTracker Overlay"
-                                   FontSize="18"
-                                   FontWeight="Bold"
-                                   Foreground="#F0FFFFFF" />
-                        <TextBlock x:Name="HotkeyHintText"
-                                   Foreground="#CCFFFFFF"
-                                   FontSize="12"
-                                   Margin="0,4,0,0"
-                                   Text="" />
-                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Left"
+                               Text="ArcTracker Overlay"
+                               VerticalAlignment="Center"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="#F0FFFFFF" />
 
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="Reload"
-                            Padding="12,4"
-                            Margin="0,0,8,0"
-                            Click="OnReloadRequested"
-                            ToolTip="Reload the website" />
-                        <ToggleButton x:Name="ClickThroughToggle"
-                                  Width="130"
-                                  Padding="12,4"
-                                  Margin="0,0,8,0"
-                                  Checked="OnClickThroughChecked"
-                                  Unchecked="OnClickThroughUnchecked"
-                                  Content="Click-through"
-                                  ToolTip="Toggle click-through mode (Ctrl+Alt+T)" />
-                        <Button Content="Settings"
-                                Padding="12,4"
-                                Margin="0,0,8,0"
-                                Click="OnSettingsRequested"
-                                ToolTip="Configure hotkeys and behavior" />
-                        <Button Content="Close"
-                            Padding="12,4"
-                            Click="OnCloseRequested"
-                            ToolTip="Close the application" />
-                    </StackPanel>
+                        <Button x:Name="HeaderMenuButton"
+                            DockPanel.Dock="Right"
+                            Padding="8"
+                            Width="44"
+                            Height="44"
+                            Background="#22000000"
+                            BorderBrush="#55FFFFFF"
+                            BorderThickness="1"
+                            ToolTip="Overlay menu"
+                            Click="OnHeaderMenuRequested">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="MenuBorder"
+                                        CornerRadius="20"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                    <Grid>
+                                        <Rectangle Fill="#30FFFFFF" RadiusX="20" RadiusY="20" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Rectangle Height="2" Width="18" Fill="#F0FFFFFF" RadiusX="2" RadiusY="2" Margin="0,0,0,4" />
+                                            <Rectangle Height="2" Width="18" Fill="#F0FFFFFF" RadiusX="2" RadiusY="2" Margin="0,0,0,4" />
+                                            <Rectangle Height="2" Width="18" Fill="#F0FFFFFF" RadiusX="2" RadiusY="2" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="MenuBorder" Property="Background" Value="#44000000" />
+                                        <Setter TargetName="MenuBorder" Property="BorderBrush" Value="#88FFFFFF" />
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="MenuBorder" Property="Background" Value="#66000000" />
+                                        <Setter TargetName="MenuBorder" Property="BorderBrush" Value="#CCFFFFFF" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="HeaderContextMenu">
+                                <MenuItem Header="Reload"
+                                          Click="OnReloadRequested" />
+                                <MenuItem x:Name="MenuClickThroughToggle"
+                                          Header="Click-through"
+                                          IsCheckable="True"
+                                          Click="OnClickThroughMenuItemClicked" />
+                                <Separator />
+                                <MenuItem Header="Settings"
+                                          Click="OnSettingsRequested" />
+                                <MenuItem Header="Close"
+                                          Click="OnCloseRequested" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
                 </DockPanel>
             </Border>
 

@@ -1,12 +1,14 @@
 ﻿using Microsoft.Web.WebView2.Core;
 using OverlayApp.Infrastructure;
+using OverlayApp.Properties;
 using System;
 using System.ComponentModel;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls.Primitives;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -19,6 +21,8 @@ public partial class MainWindow : Window
     private const int ExitHotkeyId = 2;
     private const int ClickThroughHotkeyId = 3;
     private const double ResizeBorderThickness = 12d;
+    private const double MinimumWindowWidth = 400d;
+    private const double MinimumWindowHeight = 300d;
 
     private static readonly HotkeyDefinition DefaultToggleHotkey = new(ModifierKeys.Control | ModifierKeys.Alt, Key.O);
     private static readonly HotkeyDefinition DefaultExitHotkey = new(ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.O);
@@ -28,11 +32,11 @@ public partial class MainWindow : Window
     private readonly UserSettings _settings;
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
-    private bool _suppressClickThroughEvents;
+    private MenuItem? _clickThroughMenuItem;
+    private bool _suppressMenuToggleEvents;
     private IntPtr _windowHandle;
     private HwndSource? _hwndSource;
     private int _baseExtendedStyle;
-    private Rect _lastKnownVisibleBounds;
     private HotkeyDefinition _toggleHotkey = DefaultToggleHotkey;
     private HotkeyDefinition _exitHotkey = DefaultExitHotkey;
     private HotkeyDefinition _clickThroughHotkey = DefaultClickThroughHotkey;
@@ -45,13 +49,10 @@ public partial class MainWindow : Window
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
-        ApplyWindowPlacement();
-        CaptureBounds();
         ApplyOverlayAppearance();
         ApplyTopmostSetting();
-        UpdateClickThroughToggle(_settings.ClickThroughEnabled);
+        UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
         UpdateHeaderVisibility(_settings.ClickThroughEnabled);
-        UpdateHotkeyHintText();
         NavigateToTracker();
 
         await InitializeWebViewAsync();
@@ -75,6 +76,7 @@ public partial class MainWindow : Window
             throw new InvalidOperationException("Unable to find the window handle for hotkey registration.");
         }
 
+        ApplyWindowPlacementFromSettings();
         _hwndSource.AddHook(WndProc);
         _windowHandle = _hwndSource.Handle;
         _baseExtendedStyle = NativeWindowMethods.GetWindowLong(_windowHandle, NativeWindowMethods.GWL_EXSTYLE);
@@ -85,7 +87,8 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
-        PersistCurrentPlacement();
+        PersistWindowPlacementToSettings();
+        Settings.Default.Save();
         _settingsStore.Save(_settings);
         _hotkeyManager?.Dispose();
         _hwndSource?.RemoveHook(WndProc);
@@ -132,26 +135,32 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnClickThroughChecked(object sender, RoutedEventArgs e)
+    private void OnHeaderMenuRequested(object sender, RoutedEventArgs e)
     {
-        if (_suppressClickThroughEvents)
+        if (sender is not Button button)
         {
             return;
         }
 
-        SetClickThroughMode(true, updateToggle: false);
-        UpdateClickThroughToggle(true);
+        if (button.ContextMenu is null)
+        {
+            return;
+        }
+
+        button.ContextMenu.PlacementTarget = button;
+        UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
+        button.ContextMenu.IsOpen = true;
     }
 
-    private void OnClickThroughUnchecked(object sender, RoutedEventArgs e)
+    private void OnClickThroughMenuItemClicked(object sender, RoutedEventArgs e)
     {
-        if (_suppressClickThroughEvents)
+        if (_suppressMenuToggleEvents)
         {
             return;
         }
 
-        SetClickThroughMode(false, updateToggle: false);
-        UpdateClickThroughToggle(false);
+        var newState = !_settings.ClickThroughEnabled;
+        SetClickThroughMode(newState);
     }
 
     private void OnWindowSizeChanged(object sender, SizeChangedEventArgs e)
@@ -163,7 +172,6 @@ public partial class MainWindow : Window
 
         _settings.Width = Width;
         _settings.Height = Height;
-        CaptureBounds();
     }
 
     private void OnWindowLocationChanged(object? sender, EventArgs e)
@@ -175,7 +183,6 @@ public partial class MainWindow : Window
 
         _settings.Left = Left;
         _settings.Top = Top;
-        CaptureBounds();
     }
 
     private void OnWindowStateChanged(object? sender, EventArgs e)
@@ -284,7 +291,6 @@ public partial class MainWindow : Window
         _isOverlayVisible = true;
         Show();
         ApplyTopmostSetting();
-        CaptureBounds();
         Activate();
     }
 
@@ -297,7 +303,6 @@ public partial class MainWindow : Window
     {
         var newState = !_settings.ClickThroughEnabled;
         SetClickThroughMode(newState);
-        UpdateClickThroughToggle(newState);
     }
 
     private void ToggleWindowState()
@@ -327,61 +332,77 @@ public partial class MainWindow : Window
         _settings.ToggleHotkey = _toggleHotkey.ToString();
         _settings.ExitHotkey = _exitHotkey.ToString();
         _settings.ClickThroughHotkey = _clickThroughHotkey.ToString();
-
-        UpdateHotkeyHintText();
     }
 
-    private void ApplyWindowPlacement()
+    private void ApplyWindowPlacementFromSettings()
     {
-        if (_settings.IsMaximized)
-        {
-            WindowState = WindowState.Maximized;
-        }
+        var windowSettings = Settings.Default;
+        var safeBounds = GetSafeBounds(windowSettings.Left, windowSettings.Top, windowSettings.Width, windowSettings.Height);
 
-        if (!double.IsNaN(_settings.Width) && _settings.Width > 0)
-        {
-            Width = _settings.Width;
-        }
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Width = safeBounds.Width;
+        Height = safeBounds.Height;
+        Left = safeBounds.Left;
+        Top = safeBounds.Top;
 
-        if (!double.IsNaN(_settings.Height) && _settings.Height > 0)
-        {
-            Height = _settings.Height;
-        }
-
-        if (!double.IsNaN(_settings.Left) && !double.IsNaN(_settings.Top))
-        {
-            var virtualLeft = SystemParameters.VirtualScreenLeft;
-            var virtualTop = SystemParameters.VirtualScreenTop;
-            var virtualRight = virtualLeft + SystemParameters.VirtualScreenWidth;
-            var virtualBottom = virtualTop + SystemParameters.VirtualScreenHeight;
-
-            var clampedWidth = Math.Min(Width, SystemParameters.VirtualScreenWidth);
-            var clampedHeight = Math.Min(Height, SystemParameters.VirtualScreenHeight);
-
-            var maxLeft = Math.Max(virtualLeft, virtualRight - clampedWidth);
-            var maxTop = Math.Max(virtualTop, virtualBottom - clampedHeight);
-
-            Left = Math.Clamp(_settings.Left, virtualLeft, maxLeft);
-            Top = Math.Clamp(_settings.Top, virtualTop, maxTop);
-        }
+        WindowState = windowSettings.Maximized ? WindowState.Maximized : WindowState.Normal;
     }
 
-    private void PersistCurrentPlacement()
+    private void PersistWindowPlacementToSettings()
     {
-        if (_isOverlayVisible && WindowState == WindowState.Normal)
+        var currentBounds = WindowState == WindowState.Normal
+            ? new Rect(Left, Top, Width, Height)
+            : RestoreBounds;
+
+        if (currentBounds.Width <= 0 || currentBounds.Height <= 0)
         {
-            _lastKnownVisibleBounds = new Rect(Left, Top, Width, Height);
+            return;
         }
 
-        if (_lastKnownVisibleBounds.Width > 0 && _lastKnownVisibleBounds.Height > 0)
-        {
-            _settings.Left = _lastKnownVisibleBounds.Left;
-            _settings.Top = _lastKnownVisibleBounds.Top;
-            _settings.Width = _lastKnownVisibleBounds.Width;
-            _settings.Height = _lastKnownVisibleBounds.Height;
-        }
+        var safeBounds = GetSafeBounds(currentBounds.Left, currentBounds.Top, currentBounds.Width, currentBounds.Height);
+        var windowSettings = Settings.Default;
 
-        _settings.IsMaximized = WindowState == WindowState.Maximized;
+        windowSettings.Left = safeBounds.Left;
+        windowSettings.Top = safeBounds.Top;
+        windowSettings.Width = safeBounds.Width;
+        windowSettings.Height = safeBounds.Height;
+        windowSettings.Maximized = WindowState == WindowState.Maximized;
+
+        _settings.Left = safeBounds.Left;
+        _settings.Top = safeBounds.Top;
+        _settings.Width = safeBounds.Width;
+        _settings.Height = safeBounds.Height;
+        _settings.IsMaximized = windowSettings.Maximized;
+    }
+
+    private static Rect GetSafeBounds(double left, double top, double width, double height)
+    {
+        var virtualLeft = SystemParameters.VirtualScreenLeft;
+        var virtualTop = SystemParameters.VirtualScreenTop;
+        var virtualRight = virtualLeft + SystemParameters.VirtualScreenWidth;
+        var virtualBottom = virtualTop + SystemParameters.VirtualScreenHeight;
+
+        var safeWidth = double.IsNaN(width) || width <= 0
+            ? MinimumWindowWidth
+            : width;
+        safeWidth = Math.Clamp(safeWidth, MinimumWindowWidth, Math.Max(MinimumWindowWidth, SystemParameters.VirtualScreenWidth));
+
+        var safeHeight = double.IsNaN(height) || height <= 0
+            ? MinimumWindowHeight
+            : height;
+        safeHeight = Math.Clamp(safeHeight, MinimumWindowHeight, Math.Max(MinimumWindowHeight, SystemParameters.VirtualScreenHeight));
+
+        var maxLeft = Math.Max(virtualLeft, virtualRight - safeWidth);
+        var maxTop = Math.Max(virtualTop, virtualBottom - safeHeight);
+
+        var safeLeft = double.IsNaN(left)
+            ? virtualLeft
+            : Math.Clamp(left, virtualLeft, maxLeft);
+        var safeTop = double.IsNaN(top)
+            ? virtualTop
+            : Math.Clamp(top, virtualTop, maxTop);
+
+        return new Rect(safeLeft, safeTop, safeWidth, safeHeight);
     }
 
     private void SetClickThroughMode(bool enabled, bool updateToggle = true)
@@ -389,49 +410,30 @@ public partial class MainWindow : Window
         EnsureWindowHandle();
 
         var styles = _baseExtendedStyle | NativeWindowMethods.WS_EX_LAYERED;
-        if (enabled)
+        styles = enabled
+            ? styles | NativeWindowMethods.WS_EX_TRANSPARENT
+            : styles & ~NativeWindowMethods.WS_EX_TRANSPARENT;
+        NativeWindowMethods.SetWindowLong(_windowHandle, NativeWindowMethods.GWL_EXSTYLE, styles);
+
+        if (ChromeBorder is not null)
         {
-            styles |= NativeWindowMethods.WS_EX_TRANSPARENT;
-        }
-        else
-        {
-            styles &= ~NativeWindowMethods.WS_EX_TRANSPARENT;
-                    _lastKnownVisibleBounds = new Rect(Left, Top, Width, Height);
-                }
             ChromeBorder.IsHitTestVisible = !enabled;
-                if (_lastKnownVisibleBounds.Width > 0 && _lastKnownVisibleBounds.Height > 0)
-                {
-                    _settings.Width = _lastKnownVisibleBounds.Width;
-                    _settings.Height = _lastKnownVisibleBounds.Height;
-                    _settings.Left = _lastKnownVisibleBounds.Left;
-                    _settings.Top = _lastKnownVisibleBounds.Top;
         }
 
         if (OverlayView is not null)
         {
             OverlayView.IsHitTestVisible = !enabled;
         }
+        _settings.ClickThroughEnabled = enabled;
+
         ApplyOverlayAppearance(enabled);
         UpdateHeaderVisibility(enabled);
         ApplyTopmostSetting();
 
         if (updateToggle)
         {
-            UpdateClickThroughToggle(enabled);
+            UpdateClickThroughMenuState(enabled);
         }
-    }
-
-    private void UpdateClickThroughToggle(bool isEnabled)
-    {
-        if (ClickThroughToggle is null)
-        {
-            return;
-        }
-
-        _suppressClickThroughEvents = true;
-        ClickThroughToggle.IsChecked = isEnabled;
-        ClickThroughToggle.Content = isEnabled ? "Click-through (On)" : "Click-through (Off)";
-        _suppressClickThroughEvents = false;
     }
 
     private void ApplyOverlayAppearance()
@@ -450,7 +452,7 @@ public partial class MainWindow : Window
         var clickThroughOpacity = Math.Clamp(_settings.ClickThroughOverlayOpacity, 0.1, 1.0);
         var appliedOpacity = clickThroughActive ? clickThroughOpacity : baseOpacity;
         ChromeBorder.Opacity = appliedOpacity;
-        _ = ApplyWebContentStylingAsync();
+        _ = ApplyWebContentStylingAsync(clickThroughActive);
     }
 
     private void ApplyTopmostSetting()
@@ -469,16 +471,6 @@ public partial class MainWindow : Window
         {
             OverlayView.Source = uri;
         }
-    }
-
-    private void UpdateHotkeyHintText()
-    {
-        if (HotkeyHintText is null)
-        {
-            return;
-        }
-
-        HotkeyHintText.Text = $"{_toggleHotkey} = Toggle · {_exitHotkey} = Exit · {_clickThroughHotkey} = Click-through";
     }
 
     private void ApplySettingsFromDialog(UserSettings updated)
@@ -508,7 +500,7 @@ public partial class MainWindow : Window
         }
 
         ApplyTopmostSetting();
-        UpdateClickThroughToggle(_settings.ClickThroughEnabled);
+        UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
         _ = ApplyWebContentStylingAsync();
 
         _settingsStore.Save(_settings);
@@ -522,16 +514,6 @@ public partial class MainWindow : Window
         }
 
         HeaderBar.Visibility = clickThroughActive ? Visibility.Collapsed : Visibility.Visible;
-    }
-
-    private void CaptureBounds()
-    {
-        if (!IsLoaded || !_isOverlayVisible || WindowState != WindowState.Normal)
-        {
-            return;
-        }
-
-        _lastKnownVisibleBounds = new Rect(Left, Top, Width, Height);
     }
 
     private void EnsureWindowHandle()
@@ -556,7 +538,42 @@ public partial class MainWindow : Window
             : Math.Clamp(_settings.OverlayOpacity, 0.2, 1.0);
     }
 
-    private async Task ApplyWebContentStylingAsync()
+    private void UpdateClickThroughMenuState(bool isEnabled)
+    {
+        var menuItem = GetClickThroughMenuItem();
+        if (menuItem is null)
+        {
+            return;
+        }
+
+        _suppressMenuToggleEvents = true;
+        menuItem.IsChecked = isEnabled;
+        menuItem.Header = isEnabled ? "Click-through (On)" : "Click-through (Off)";
+        _suppressMenuToggleEvents = false;
+    }
+
+    private MenuItem? GetClickThroughMenuItem()
+    {
+        if (_clickThroughMenuItem is not null)
+        {
+            return _clickThroughMenuItem;
+        }
+
+        if (HeaderMenuButton?.ContextMenu is not ContextMenu menu)
+        {
+            return null;
+        }
+
+        _clickThroughMenuItem = menu.Items.OfType<MenuItem>().FirstOrDefault(item => item.Name == "MenuClickThroughToggle");
+        return _clickThroughMenuItem;
+    }
+
+    private Task ApplyWebContentStylingAsync()
+    {
+        return ApplyWebContentStylingAsync(_settings.ClickThroughEnabled);
+    }
+
+    private async Task ApplyWebContentStylingAsync(bool clickThroughActive)
     {
         try
         {
@@ -565,7 +582,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var opacity = GetOverlayOpacity(_settings.ClickThroughEnabled);
+            var opacity = GetOverlayOpacity(clickThroughActive);
             var opacityText = opacity.ToString(CultureInfo.InvariantCulture);
             var script = $@"
 (function() {{
