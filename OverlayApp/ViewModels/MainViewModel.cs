@@ -15,6 +15,7 @@ internal sealed partial class MainViewModel : ObservableObject
         Dashboard = new DashboardViewModel();
         Quests = new QuestsViewModel(progressStore);
         NeededItems = new NeededItemsViewModel();
+        NeededItems.NavigationRequested += OnNeededItemNavigationRequested;
         Hideout = new HideoutViewModel(progressStore, logger);
         Projects = new ProjectsViewModel();
         ItemsDatabase = new ItemsDbViewModel();
@@ -72,6 +73,12 @@ internal sealed partial class MainViewModel : ObservableObject
     {
         StatusMessage = message;
         IsBusy = isBusy;
+    }
+
+    private void OnNeededItemNavigationRequested(string itemId)
+    {
+        SelectedNavigation = ItemsDatabase;
+        ItemsDatabase.NavigateToItem(itemId);
     }
 
     partial void OnSelectedNavigationChanged(NavigationPaneViewModel? value)

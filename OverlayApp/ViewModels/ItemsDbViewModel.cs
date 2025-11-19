@@ -35,6 +35,9 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
     [ObservableProperty]
     private string _emptyMessage = "Loading...";
 
+    [ObservableProperty]
+    private ItemEntryViewModel? _scrollToItem;
+
     public event Action<ItemEntryViewModel>? RequestScrollToItem;
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
@@ -161,7 +164,7 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
         }
     }
 
-    private void NavigateToItem(string itemId)
+    public void NavigateToItem(string itemId)
     {
         var target = _allItems.FirstOrDefault(i => i.ItemId.Equals(itemId, StringComparison.OrdinalIgnoreCase));
         if (target is null)
@@ -181,6 +184,7 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
         // Expand the target item
         target.IsExpanded = true;
 
+        ScrollToItem = target;
         RequestScrollToItem?.Invoke(target);
     }
 

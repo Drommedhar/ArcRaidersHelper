@@ -65,9 +65,38 @@ public partial class MainWindow : Window
         _updateService = new UpdateService(githubToken, _logger);
         _dataSyncService = new ArcDataSyncService(githubToken, _logger);
         _progressStore = new UserProgressStore(_logger);
+        _progressStore.ProgressChanged += OnProgressChanged;
         _settings = _settingsStore.Load();
         _viewModel = new MainViewModel(_progressStore, _logger);
         DataContext = _viewModel;
+    }
+
+    private void OnProgressChanged(object? sender, UserProgressState newState)
+    {
+        // This event is invoked from a background thread by UserProgressStore.
+        // We perform the heavy calculation here, off the UI thread.
+        if (_arcData == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var report = _progressCalculator.Calculate(newState, _arcData);
+
+            // Only dispatch the lightweight UI update
+            Dispatcher.Invoke(() =>
+            {
+                _userProgress = newState;
+                _progressReport = report;
+                _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
+                _logger.Log("Progress", "Progress updated from file change.");
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("Progress", $"Failed to recalculate progress: {ex.Message}");
+        }
     }
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)

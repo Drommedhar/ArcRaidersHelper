@@ -28,7 +28,10 @@ internal sealed class ArcQuest : IArcEntity
     public int Xp { get; set; }
 
     [JsonPropertyName("objectives")]
-    public List<Dictionary<string, string>> Objectives { get; set; } = new();
+    public List<Dictionary<string, JsonElement>> Objectives { get; set; } = new();
+
+    [JsonPropertyName("requiredItemIds")]
+    public List<ProjectPhaseItemRequirement>? RequiredItems { get; set; }
 
     [JsonPropertyName("rewardItemIds")]
     public List<ProjectPhaseItemRequirement>? RewardItems { get; set; }

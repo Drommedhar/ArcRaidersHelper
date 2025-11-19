@@ -8,10 +8,12 @@ internal sealed class ProgressReport
     public ProgressReport(
         IReadOnlyList<ActiveQuestSummary> activeQuests,
         IReadOnlyList<NeededItemSummary> neededItems,
+        IReadOnlyList<RequirementGroup> groupedRequirements,
         ProgressCompletionMetrics completion)
     {
         ActiveQuests = activeQuests;
         NeededItems = neededItems;
+        GroupedRequirements = groupedRequirements;
         Completion = completion;
     }
 
@@ -19,7 +21,22 @@ internal sealed class ProgressReport
 
     public IReadOnlyList<NeededItemSummary> NeededItems { get; }
 
+    public IReadOnlyList<RequirementGroup> GroupedRequirements { get; }
+
     public ProgressCompletionMetrics Completion { get; }
+}
+
+internal sealed class RequirementGroup
+{
+    public string Category { get; init; } = string.Empty;
+    public List<RequirementSource> Sources { get; init; } = new();
+}
+
+internal sealed class RequirementSource
+{
+    public string Name { get; init; } = string.Empty;
+    public string Subtitle { get; init; } = string.Empty;
+    public List<NeededItemSummary> Items { get; init; } = new();
 }
 
 internal sealed class ActiveQuestSummary
@@ -41,11 +58,17 @@ internal sealed class NeededItemSummary
 
     public string? DisplayName { get; init; }
 
+    public string? ImageFilename { get; init; }
+
+    public string? Rarity { get; init; }
+
     public int OwnedQuantity { get; init; }
 
     public int RequiredQuantity { get; init; }
 
     public int MissingQuantity { get; init; }
+
+    public List<string> Sources { get; init; } = new();
 }
 
 internal sealed class ProgressCompletionMetrics

@@ -20,13 +20,75 @@ internal sealed class UserProgressStore : IDisposable
         AllowTrailingCommas = true,
         ReadCommentHandling = JsonCommentHandling.Skip
     };
+    private FileSystemWatcher? _watcher;
+    private CancellationTokenSource? _debounceCts;
+    private readonly object _debounceLock = new();
 
     private bool _disposed;
+
+    public event EventHandler<UserProgressState>? ProgressChanged;
 
     public UserProgressStore(ILogger logger)
     {
         _logger = logger;
         _paths.EnsureBaseDirectories();
+        InitializeWatcher();
+    }
+
+    private void InitializeWatcher()
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(_paths.ProgressFilePath);
+            if (string.IsNullOrEmpty(directory)) return;
+
+            _watcher = new FileSystemWatcher(directory, Path.GetFileName(_paths.ProgressFilePath))
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size,
+                EnableRaisingEvents = true
+            };
+
+            _watcher.Changed += OnFileChanged;
+            _watcher.Created += OnFileChanged;
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("ProgressStore", $"Failed to initialize file watcher: {ex.Message}");
+        }
+    }
+
+    private async void OnFileChanged(object sender, FileSystemEventArgs e)
+    {
+        CancellationToken token;
+        lock (_debounceLock)
+        {
+            _debounceCts?.Cancel();
+            _debounceCts?.Dispose();
+            _debounceCts = new CancellationTokenSource();
+            token = _debounceCts.Token;
+        }
+
+        try
+        {
+            // Debounce: wait for file writes to settle
+            await Task.Delay(500, token);
+            if (token.IsCancellationRequested) return;
+
+            var state = await LoadAsync(token);
+            
+            if (!token.IsCancellationRequested)
+            {
+                ProgressChanged?.Invoke(this, state);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("ProgressStore", $"Error handling file change: {ex.Message}");
+        }
     }
 
     public async Task<UserProgressState> LoadAsync(CancellationToken cancellationToken)
@@ -77,6 +139,9 @@ internal sealed class UserProgressStore : IDisposable
         }
 
         _disposed = true;
+        _watcher?.Dispose();
+        _debounceCts?.Cancel();
+        _debounceCts?.Dispose();
         _gate.Dispose();
         GC.SuppressFinalize(this);
     }
