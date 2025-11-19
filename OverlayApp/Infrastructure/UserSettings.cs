@@ -12,6 +12,7 @@ public sealed class UserSettings
     public bool AlwaysOnTop { get; set; } = true;
     public double OverlayOpacity { get; set; } = 1.0;
     public double ClickThroughOverlayOpacity { get; set; } = 0.6;
+    public bool AutoCaptureEnabled { get; set; }
     public string TrackerUrl { get; set; } = "https://arctracker.io";
     public string? LastDownloadedVersion { get; set; }
     public string Language { get; set; } = "en";

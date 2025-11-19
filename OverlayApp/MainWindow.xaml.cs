@@ -2,6 +2,7 @@
 using OverlayApp.Infrastructure;
 using OverlayApp.Progress;
 using OverlayApp.Properties;
+using OverlayApp.Services;
 using OverlayApp.ViewModels;
 using System;
 using System.ComponentModel;
@@ -18,6 +19,11 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Application = System.Windows.Application;
+using Button = System.Windows.Controls.Button;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using MessageBox = System.Windows.MessageBox;
+using Point = System.Windows.Point;
 
 namespace OverlayApp;
 
@@ -44,6 +50,7 @@ public partial class MainWindow : Window
     private readonly UserProgressStore _progressStore;
     private readonly ProgressCalculator _progressCalculator = new();
     private readonly MainViewModel _viewModel;
+    private readonly GameCaptureService _gameCaptureService;
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
     private MenuItem? _clickThroughMenuItem;
@@ -57,6 +64,9 @@ public partial class MainWindow : Window
     private ArcDataSnapshot? _arcData;
     private UserProgressState? _userProgress;
     private ProgressReport? _progressReport;
+    private bool _firstCaptureFrameLogged;
+    private bool _captureExclusionApplied;
+    private bool _autoCaptureActive;
 
     public MainWindow()
     {
@@ -69,6 +79,8 @@ public partial class MainWindow : Window
         _progressStore.ProgressChanged += OnProgressChanged;
         _settings = _settingsStore.Load();
         _viewModel = new MainViewModel(_progressStore, _logger);
+        _gameCaptureService = new GameCaptureService(_logger);
+        _gameCaptureService.FrameCaptured += OnGameFrameCaptured;
         DataContext = _viewModel;
     }
 
@@ -100,6 +112,17 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnGameFrameCaptured(object? sender, GameFrameCapturedEventArgs e)
+    {
+        if (_firstCaptureFrameLogged)
+        {
+            return;
+        }
+
+        _firstCaptureFrameLogged = true;
+        _logger.Log("GameCapture", $"Receiving frames at {e.Frame.Width}x{e.Frame.Height}; debug dump: {_gameCaptureService.LatestFramePath}");
+    }
+
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         LocalizationService.Instance.CurrentLanguage = _settings.Language;
@@ -127,6 +150,7 @@ public partial class MainWindow : Window
         }
 
         _ = CheckForUpdatesAsync();
+        UpdateAutoCaptureState(_settings.AutoCaptureEnabled);
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -141,6 +165,7 @@ public partial class MainWindow : Window
         _hwndSource.AddHook(WndProc);
         _windowHandle = _hwndSource.Handle;
         _baseExtendedStyle = NativeWindowMethods.GetWindowLong(_windowHandle, NativeWindowMethods.GWL_EXSTYLE);
+        ApplyCaptureExclusion();
         _hotkeyManager = new GlobalHotkeyManager(_hwndSource);
         RegisterHotkeys();
         SetClickThroughMode(_settings.ClickThroughEnabled);
@@ -158,6 +183,14 @@ public partial class MainWindow : Window
         _dataSyncCts.Dispose();
         _progressStore.Dispose();
         _updateService.Dispose();
+        UpdateAutoCaptureState(false);
+        _gameCaptureService.FrameCaptured -= OnGameFrameCaptured;
+        _gameCaptureService.Dispose();
+        if (_captureExclusionApplied)
+        {
+            DisplayAffinityHelper.ClearAffinity(_windowHandle, _logger);
+            _captureExclusionApplied = false;
+        }
     }
 
     private void OnHeaderMouseDown(object sender, MouseButtonEventArgs e)
@@ -558,6 +591,7 @@ public partial class MainWindow : Window
     {
         var previousClickThroughState = _settings.ClickThroughEnabled;
         var previousLanguage = _settings.Language;
+        var previousAutoCaptureState = _settings.AutoCaptureEnabled;
 
         _settings.ToggleHotkey = updated.ToggleHotkey;
         _settings.ExitHotkey = updated.ExitHotkey;
@@ -567,6 +601,7 @@ public partial class MainWindow : Window
         _settings.OverlayOpacity = updated.OverlayOpacity;
         _settings.ClickThroughOverlayOpacity = updated.ClickThroughOverlayOpacity;
         _settings.ClickThroughEnabled = updated.ClickThroughEnabled;
+        _settings.AutoCaptureEnabled = updated.AutoCaptureEnabled;
         _settings.Language = updated.Language;
 
         RegisterHotkeys();
@@ -582,6 +617,10 @@ public partial class MainWindow : Window
 
         ApplyTopmostSetting();
         UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
+        if (previousAutoCaptureState != _settings.AutoCaptureEnabled)
+        {
+            UpdateAutoCaptureState(_settings.AutoCaptureEnabled);
+        }
 
         _settingsStore.Save(_settings);
 
@@ -635,6 +674,61 @@ public partial class MainWindow : Window
             ? LocalizationService.Instance["Menu_ClickThroughOn"] 
             : LocalizationService.Instance["Menu_ClickThroughOff"];
         _suppressMenuToggleEvents = false;
+    }
+
+    private void UpdateAutoCaptureState(bool enable)
+    {
+        if (enable)
+        {
+            if (_autoCaptureActive)
+            {
+                return;
+            }
+
+            try
+            {
+                _gameCaptureService.Start();
+                _autoCaptureActive = true;
+                _logger.Log("GameCapture", "Auto capture enabled.");
+            }
+            catch (Exception ex)
+            {
+                _logger.Log("GameCapture", $"Failed to start auto capture: {ex.Message}");
+                MessageBox.Show(this,
+                    LocalizationService.Instance["Settings_AutoCaptureStartFailed"],
+                    LocalizationService.Instance["App_Title"],
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                _settings.AutoCaptureEnabled = false;
+            }
+        }
+        else
+        {
+            if (!_autoCaptureActive)
+            {
+                return;
+            }
+
+            try
+            {
+                _gameCaptureService.Stop();
+            }
+            finally
+            {
+                _autoCaptureActive = false;
+                _logger.Log("GameCapture", "Auto capture disabled.");
+            }
+        }
+    }
+
+    private void ApplyCaptureExclusion()
+    {
+        if (_windowHandle == IntPtr.Zero || _captureExclusionApplied)
+        {
+            return;
+        }
+
+        _captureExclusionApplied = DisplayAffinityHelper.TryExcludeFromCapture(_windowHandle, _logger);
     }
 
     private MenuItem? GetClickThroughMenuItem()

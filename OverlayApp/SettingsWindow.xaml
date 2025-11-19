@@ -48,6 +48,14 @@
                                   IsChecked="{Binding AlwaysOnTop}" />
                         <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_ClickThroughDefault]}"
                                   IsChecked="{Binding ClickThroughEnabled}" />
+                        <CheckBox x:Name="AutoCaptureCheckBox"
+                                  Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_AutoCapture]}"
+                                  IsChecked="{Binding AutoCaptureEnabled}"
+                                  Checked="OnAutoCaptureChecked" />
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_AutoCaptureHint]}"
+                                   TextWrapping="Wrap"
+                                   Margin="24,2,0,0"
+                                   Foreground="#AAFFFFFF" />
                         <StackPanel Orientation="Horizontal"
                                     VerticalAlignment="Center"
                                     Margin="0,6,0,0">
