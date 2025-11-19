@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private const double ResizeBorderThickness = 12d;
     private const double MinimumWindowWidth = 400d;
     private const double MinimumWindowHeight = 300d;
+    private const double NavigationWidth = 240d;
 
     private static readonly HotkeyDefinition DefaultToggleHotkey = new(ModifierKeys.Control | ModifierKeys.Alt, Key.O);
     private static readonly HotkeyDefinition DefaultExitHotkey = new(ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.O);
@@ -234,6 +235,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_settings.ClickThroughEnabled)
+        {
+            return;
+        }
+
         _settings.Width = Width;
         _settings.Height = Height;
     }
@@ -241,6 +247,11 @@ public partial class MainWindow : Window
     private void OnWindowLocationChanged(object? sender, EventArgs e)
     {
         if (!IsLoaded || !_isOverlayVisible || WindowState != WindowState.Normal)
+        {
+            return;
+        }
+
+        if (_settings.ClickThroughEnabled)
         {
             return;
         }
@@ -484,6 +495,27 @@ public partial class MainWindow : Window
         if (ChromeBorder is not null)
         {
             ChromeBorder.IsHitTestVisible = !enabled;
+        }
+
+        var navigationPanel = FindName("NavigationPanel") as Border;
+        var navigationColumn = FindName("NavigationColumn") as ColumnDefinition;
+
+        if (navigationPanel is not null && navigationColumn is not null)
+        {
+            if (enabled && navigationPanel.Visibility == Visibility.Visible)
+            {
+                navigationPanel.Visibility = Visibility.Collapsed;
+                navigationColumn.Width = new GridLength(0);
+                Left += NavigationWidth;
+                Width -= NavigationWidth;
+            }
+            else if (!enabled && navigationPanel.Visibility == Visibility.Collapsed)
+            {
+                navigationPanel.Visibility = Visibility.Visible;
+                navigationColumn.Width = new GridLength(NavigationWidth);
+                Left -= NavigationWidth;
+                Width += NavigationWidth;
+            }
         }
 
         _settings.ClickThroughEnabled = enabled;
