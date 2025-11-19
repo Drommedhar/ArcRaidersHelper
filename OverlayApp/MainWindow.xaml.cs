@@ -565,7 +565,6 @@ public partial class MainWindow : Window
         _settings.OverlayOpacity = updated.OverlayOpacity;
         _settings.ClickThroughOverlayOpacity = updated.ClickThroughOverlayOpacity;
         _settings.ClickThroughEnabled = updated.ClickThroughEnabled;
-        _settings.HideAds = updated.HideAds;
 
         RegisterHotkeys();
         if (previousClickThroughState != _settings.ClickThroughEnabled)

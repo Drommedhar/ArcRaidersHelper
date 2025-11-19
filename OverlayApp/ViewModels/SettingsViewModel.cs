@@ -19,7 +19,6 @@ public partial class SettingsViewModel : ObservableObject
         HideOnLaunch = _workingCopy.HideOnLaunch;
         AlwaysOnTop = _workingCopy.AlwaysOnTop;
         ClickThroughEnabled = _workingCopy.ClickThroughEnabled;
-        HideAds = _workingCopy.HideAds;
         ToggleHotkeyText = _workingCopy.ToggleHotkey;
         ExitHotkeyText = _workingCopy.ExitHotkey;
         ClickThroughHotkeyText = _workingCopy.ClickThroughHotkey;
@@ -33,9 +32,6 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _clickThroughEnabled;
-
-    [ObservableProperty]
-    private bool _hideAds;
 
     [ObservableProperty]
     private double _overlayOpacity = 1.0;
@@ -64,7 +60,6 @@ public partial class SettingsViewModel : ObservableObject
         updated.HideOnLaunch = HideOnLaunch;
         updated.AlwaysOnTop = AlwaysOnTop;
         updated.ClickThroughEnabled = ClickThroughEnabled;
-        updated.HideAds = HideAds;
         updated.OverlayOpacity = Math.Clamp(OverlayOpacity, 0.2, 1.0);
         updated.ClickThroughOverlayOpacity = Math.Clamp(ClickThroughOverlayOpacity, 0.1, 1.0);
         updated.ToggleHotkey = toggle.ToString();

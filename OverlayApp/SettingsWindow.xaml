@@ -35,11 +35,6 @@
                                   IsChecked="{Binding AlwaysOnTop}" />
                         <CheckBox Content="Enable click-through by default"
                                   IsChecked="{Binding ClickThroughEnabled}" />
-                        <CheckBox x:Name="HideAdsCheckBox"
-                                  Content="Hide ads on tracker"
-                                  IsChecked="{Binding HideAds}"
-                                  Checked="OnHideAdsChecked"
-                                  ToolTip="Injects lightweight CSS/JS to remove common ad containers" />
                         <StackPanel Orientation="Horizontal"
                                     VerticalAlignment="Center"
                                     Margin="0,6,0,0">
