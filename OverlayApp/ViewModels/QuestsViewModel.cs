@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OverlayApp.Data;
 using OverlayApp.Data.Models;
+using OverlayApp.Infrastructure;
 using OverlayApp.Progress;
 using System;
 using System.Collections.Generic;
@@ -21,15 +22,16 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
     public event Action<string>? NavigationRequested;
     public event Action<QuestDisplayModel>? RequestScrollToQuest;
 
-    public QuestsViewModel(UserProgressStore progressStore) : base("Quests", "📜")
+    public QuestsViewModel(UserProgressStore progressStore) : base("Nav_Quests", "📜")
     {
         _progressStore = progressStore;
+        EmptyMessage = LocalizationService.Instance["Quests_EmptyMessage"];
     }
 
     public ObservableCollection<QuestDisplayModel> Quests { get; } = new();
 
     [ObservableProperty]
-    private string _emptyMessage = "Progress not loaded";
+    private string _emptyMessage;
 
     [ObservableProperty]
     private string _selectedFilter = "Available";
@@ -47,7 +49,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
         Quests.Clear();
         if (snapshot?.Quests is null)
         {
-            EmptyMessage = "Data not loaded";
+            EmptyMessage = LocalizationService.Instance["Quests_EmptyMessage"];
             return;
         }
 
@@ -91,7 +93,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 var type = GetValueIgnoreCase(obj, "type");
                 var typeStr = type?.ValueKind == JsonValueKind.String ? type.Value.GetString() : "Unknown";
 
-                string? descStr = ResolveJsonName(obj);
+                string? descStr = LocalizationHelper.ResolveJsonName(obj);
 
                 if (string.IsNullOrEmpty(descStr))
                 {
@@ -101,7 +103,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                         var elem = GetValueIgnoreCase(obj, key);
                         if (elem.HasValue)
                         {
-                            descStr = ResolveJsonElement(elem.Value);
+                            descStr = LocalizationHelper.ResolveJsonElement(elem.Value);
                             if (!string.IsNullOrEmpty(descStr)) break;
                         }
                     }
@@ -126,7 +128,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                         prereqs.Add(new QuestReferenceViewModel(NavigateToQuest)
                         {
                             QuestId = pid,
-                            Name = ResolveName(pDef.Name) ?? pid,
+                            Name = LocalizationHelper.ResolveName(pDef.Name) ?? pid,
                             Status = pStatus.ToString()
                         });
                     }
@@ -156,7 +158,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                         unlocks.Add(new QuestReferenceViewModel(NavigateToQuest)
                         {
                             QuestId = nid,
-                            Name = ResolveName(nDef.Name) ?? nid,
+                            Name = LocalizationHelper.ResolveName(nDef.Name) ?? nid,
                             Status = nStatus == (QuestProgressStatus)(-1) ? "Locked" : nStatus.ToString()
                         });
                     }
@@ -166,8 +168,8 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
             _allQuests.Add(new QuestDisplayModel(_progressStore, progress)
             {
                 QuestId = questId,
-                Name = ResolveName(definition.Name) ?? questId,
-                Description = ResolveName(definition.Description) ?? string.Empty,
+                Name = LocalizationHelper.ResolveName(definition.Name) ?? questId,
+                Description = LocalizationHelper.ResolveName(definition.Description) ?? string.Empty,
                 Trader = definition.Trader ?? "Unknown",
                 Status = statusStr,
                 ProgressText = totalObjectives > 0 ? $"{completedObjectives}/{totalObjectives}" : "-",
@@ -227,67 +229,12 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
             Quests.Add(item);
         }
 
-        EmptyMessage = Quests.Count == 0 ? "No quests found" : string.Empty;
+        EmptyMessage = Quests.Count == 0 ? LocalizationService.Instance["Quests_EmptyMessage"] : string.Empty;
     }
 
     private void OnNavigate(string itemId)
     {
         NavigationRequested?.Invoke(itemId);
-    }
-
-    private static string? ResolveName(Dictionary<string, string>? localized)
-    {
-        if (localized is null)
-        {
-            return null;
-        }
-
-        return localized.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en)
-            ? en
-            : localized.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
-    }
-
-    private static string? ResolveJsonName(Dictionary<string, JsonElement>? localized)
-    {
-        if (localized is null) return null;
-
-        if (localized.TryGetValue("en", out var en) && en.ValueKind == JsonValueKind.String)
-        {
-            return en.GetString();
-        }
-        
-        foreach (var kvp in localized)
-        {
-            if (kvp.Key.Equals("type", StringComparison.OrdinalIgnoreCase)) continue;
-            if (kvp.Key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
-            
-            if (kvp.Value.ValueKind == JsonValueKind.String)
-            {
-                return kvp.Value.GetString();
-            }
-        }
-        return null;
-    }
-
-    private static string? ResolveJsonElement(JsonElement element)
-    {
-        if (element.ValueKind == JsonValueKind.String) return element.GetString();
-        if (element.ValueKind != JsonValueKind.Object) return null;
-
-        if (element.TryGetProperty("en", out var en) && en.ValueKind == JsonValueKind.String)
-        {
-            return en.GetString();
-        }
-
-        foreach (var prop in element.EnumerateObject())
-        {
-            if (prop.Name.Equals("type", StringComparison.OrdinalIgnoreCase)) continue;
-            if (prop.Value.ValueKind == JsonValueKind.String)
-            {
-                return prop.Value.GetString();
-            }
-        }
-        return null;
     }
 
     private static JsonElement? GetValueIgnoreCase(Dictionary<string, JsonElement> dict, string key)
@@ -323,7 +270,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 list.Add(new ItemQuantityViewModel(navigateAction)
                 {
                     ItemId = req.ItemId,
-                    Name = ResolveName(item.Name) ?? req.ItemId,
+                    Name = LocalizationHelper.ResolveName(item.Name) ?? req.ItemId,
                     ImageFilename = item.ImageFilename ?? "",
                     Quantity = req.Quantity,
                     Rarity = item.Rarity ?? "Common"

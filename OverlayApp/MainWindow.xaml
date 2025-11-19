@@ -3,8 +3,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:infra="clr-namespace:OverlayApp.Infrastructure"
     mc:Ignorable="d"
-    Title="Arc Raiders Overlay"
+    Title="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[App_Title]}"
     Height="900"
     Width="1400"
     WindowStartupLocation="CenterScreen"
@@ -50,7 +51,7 @@
                         MouseLeftButtonDown="OnHeaderMouseDown">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Left"
-                                   Text="Arc Raiders Helper"
+                                   Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[App_HeaderTitle]}"
                                    VerticalAlignment="Center"
                                    FontSize="18"
                                    FontWeight="Bold"
@@ -64,7 +65,7 @@
                                 Background="#22000000"
                                 BorderBrush="#55FFFFFF"
                                 BorderThickness="1"
-                                ToolTip="Overlay menu"
+                                ToolTip="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[App_MenuTooltip]}"
                                 Click="OnHeaderMenuRequested">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
@@ -110,16 +111,16 @@
                             </Button.Template>
                             <Button.ContextMenu>
                                 <ContextMenu x:Name="HeaderContextMenu">
-                                    <MenuItem Header="Refresh data"
+                                    <MenuItem Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Menu_RefreshData]}"
                                               Click="OnReloadRequested" />
                                     <MenuItem x:Name="MenuClickThroughToggle"
-                                              Header="Click-through"
+                                              Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Menu_ClickThrough]}"
                                               IsCheckable="True"
                                               Click="OnClickThroughMenuItemClicked" />
                                     <Separator />
-                                    <MenuItem Header="Settings"
+                                    <MenuItem Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Menu_Settings]}"
                                               Click="OnSettingsRequested" />
-                                    <MenuItem Header="Close"
+                                    <MenuItem Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Menu_Close]}"
                                               Click="OnCloseRequested" />
                                 </ContextMenu>
                             </Button.ContextMenu>
@@ -138,7 +139,7 @@
                             CornerRadius="0,0,0,20"
                             Padding="12">
                         <StackPanel>
-                            <TextBlock Text="Navigation"
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Nav_Header]}"
                                        Foreground="#AAFFFFFF"
                                        FontWeight="SemiBold"
                                        Margin="0,0,0,8" />

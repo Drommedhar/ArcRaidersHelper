@@ -3,10 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:infra="clr-namespace:OverlayApp.Infrastructure"
              mc:Ignorable="d">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
-            <TextBlock Text="Operations dashboard"
+            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_Title]}"
                        FontSize="28"
                        FontWeight="Bold"
                        Foreground="#F0FFFFFF"
@@ -25,10 +26,8 @@
                         CornerRadius="16"
                         Background="#331E88FF">
                     <StackPanel>
-                        <TextBlock Text="Active quests" Foreground="#CCFFFFFF" FontSize="14" />
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_ActiveQuests]}" Foreground="#CCFFFFFF" FontSize="14" />
                         <TextBlock Text="{Binding ActiveQuests}" FontSize="40" FontWeight="Bold" Foreground="#FFFFFFFF" />
-                        <TextBlock Text="Tracked via ArcTracker"
-                                   Foreground="#99FFFFFF" />
                     </StackPanel>
                 </Border>
 
@@ -38,9 +37,9 @@
                         CornerRadius="16"
                         Background="#33FF8A1E">
                     <StackPanel>
-                        <TextBlock Text="Needed item types" Foreground="#CCFFFFFF" FontSize="14" />
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_NeededItemTypes]}" Foreground="#CCFFFFFF" FontSize="14" />
                         <TextBlock Text="{Binding ItemsMissing}" FontSize="40" FontWeight="Bold" Foreground="#FFFFFFFF" />
-                        <TextBlock Text="Missing pieces across quests"
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_MissingPieces]}"
                                    Foreground="#99FFFFFF" />
                     </StackPanel>
                 </Border>
@@ -51,9 +50,9 @@
                         CornerRadius="16"
                         Background="#3322FFAA">
                     <StackPanel>
-                        <TextBlock Text="Last updated" Foreground="#CCFFFFFF" FontSize="14" />
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_LastUpdated]}" Foreground="#CCFFFFFF" FontSize="14" />
                         <TextBlock Text="{Binding LastUpdatedLabel}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFFFF" />
-                        <TextBlock Text="From local progress file"
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_FromLocalProgress]}"
                                    Foreground="#99FFFFFF" />
                     </StackPanel>
                 </Border>
@@ -71,7 +70,7 @@
                         CornerRadius="12"
                         Background="#22000000">
                     <StackPanel>
-                        <TextBlock Text="Quest completion" Foreground="#AAFFFFFF" />
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_QuestCompletion]}" Foreground="#AAFFFFFF" />
                         <ProgressBar Value="{Binding QuestCompletionPercent}" Maximum="100" Height="12" Margin="0,8,0,4" />
                         <TextBlock Text="{Binding QuestCompletionPercent, StringFormat={}{0:F1}%}" Foreground="#F0FFFFFF" />
                     </StackPanel>
@@ -83,7 +82,7 @@
                         Background="#22000000"
                         Grid.Column="1">
                     <StackPanel>
-                        <TextBlock Text="Project completion" Foreground="#AAFFFFFF" />
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_ProjectCompletion]}" Foreground="#AAFFFFFF" />
                         <ProgressBar Value="{Binding ProjectCompletionPercent}" Maximum="100" Height="12" Margin="0,8,0,4" />
                         <TextBlock Text="{Binding ProjectCompletionPercent, StringFormat={}{0:F1}%}" Foreground="#F0FFFFFF" />
                     </StackPanel>
@@ -95,7 +94,7 @@
                         Background="#22000000"
                         Grid.Column="2">
                     <StackPanel>
-                        <TextBlock Text="Hideout completion" Foreground="#AAFFFFFF" />
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_HideoutCompletion]}" Foreground="#AAFFFFFF" />
                         <ProgressBar Value="{Binding HideoutCompletionPercent}" Maximum="100" Height="12" Margin="0,8,0,4" />
                         <TextBlock Text="{Binding HideoutCompletionPercent, StringFormat={}{0:F1}%}" Foreground="#F0FFFFFF" />
                     </StackPanel>
@@ -114,7 +113,7 @@
                         CornerRadius="12"
                         Background="#22000000">
                     <StackPanel>
-                        <TextBlock Text="Most progressed quests"
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_MostProgressedQuests]}"
                                    FontSize="18"
                                    FontWeight="SemiBold"
                                    Foreground="#F0FFFFFF" />
@@ -145,7 +144,7 @@
                         CornerRadius="12"
                         Background="#22000000">
                     <StackPanel>
-                        <TextBlock Text="Top needed items"
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Dashboard_TopNeededItems]}"
                                    FontSize="18"
                                    FontWeight="SemiBold"
                                    Foreground="#F0FFFFFF" />
@@ -155,7 +154,7 @@
                                     <Border Padding="12" Margin="0,0,0,8" CornerRadius="10" Background="#33FFAA22">
                                         <StackPanel>
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
-                                            <TextBlock Text="{Binding Missing, StringFormat=Missing x{0}}" Foreground="#CCFFFFFF" Margin="0,2,0,6" />
+                                            <TextBlock Text="{Binding MissingText}" Foreground="#CCFFFFFF" Margin="0,2,0,6" />
                                             <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" Height="8" />
                                         </StackPanel>
                                     </Border>

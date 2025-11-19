@@ -102,11 +102,12 @@ public partial class MainWindow : Window
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
+        LocalizationService.Instance.CurrentLanguage = _settings.Language;
         ApplyOverlayAppearance();
         ApplyTopmostSetting();
         UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
         UpdateHeaderVisibility(_settings.ClickThroughEnabled);
-        _viewModel.SetStatus("Syncing arc data...", true);
+        _viewModel.SetStatus(LocalizationService.Instance["Status_Syncing"], true);
         try
         {
             await InitializeArcDataAsync(_dataSyncCts.Token);
@@ -291,7 +292,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            await Dispatcher.InvokeAsync(() => _viewModel.SetStatus("Syncing arc data...", true));
+            await Dispatcher.InvokeAsync(() => _viewModel.SetStatus(LocalizationService.Instance["Status_Syncing"], true));
             var snapshot = initialLoad
                 ? await _dataSyncService.InitializeAsync(cancellationToken).ConfigureAwait(false)
                 : await _dataSyncService.RefreshAsync(forceDownload, cancellationToken).ConfigureAwait(false);
@@ -304,8 +305,8 @@ public partial class MainWindow : Window
             {
                 _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
                 var label = snapshot.LastSyncedUtc == DateTimeOffset.MinValue
-                    ? "Data synchronized"
-                    : $"Data synced {snapshot.LastSyncedUtc.ToLocalTime():g}";
+                    ? LocalizationService.Instance["Status_Synced"]
+                    : string.Format(LocalizationService.Instance["Status_SyncedTime"], snapshot.LastSyncedUtc.ToLocalTime().ToString("g"));
                 _viewModel.SetStatus(label, false);
             });
         }
@@ -317,7 +318,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _logger.Log("DataSync", $"Arc data sync failed: {ex.Message}");
-            await Dispatcher.InvokeAsync(() => _viewModel.SetStatus("Failed to sync arc data.", false));
+            await Dispatcher.InvokeAsync(() => _viewModel.SetStatus(LocalizationService.Instance["Status_SyncFailed"], false));
         }
     }
 
@@ -556,6 +557,7 @@ public partial class MainWindow : Window
     private void ApplySettingsFromDialog(UserSettings updated)
     {
         var previousClickThroughState = _settings.ClickThroughEnabled;
+        var previousLanguage = _settings.Language;
 
         _settings.ToggleHotkey = updated.ToggleHotkey;
         _settings.ExitHotkey = updated.ExitHotkey;
@@ -565,6 +567,7 @@ public partial class MainWindow : Window
         _settings.OverlayOpacity = updated.OverlayOpacity;
         _settings.ClickThroughOverlayOpacity = updated.ClickThroughOverlayOpacity;
         _settings.ClickThroughEnabled = updated.ClickThroughEnabled;
+        _settings.Language = updated.Language;
 
         RegisterHotkeys();
         if (previousClickThroughState != _settings.ClickThroughEnabled)
@@ -581,6 +584,16 @@ public partial class MainWindow : Window
         UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
 
         _settingsStore.Save(_settings);
+
+        if (!string.Equals(previousLanguage, _settings.Language, StringComparison.OrdinalIgnoreCase))
+        {
+            LocalizationService.Instance.CurrentLanguage = _settings.Language;
+            if (_arcData != null && _userProgress != null)
+            {
+                _progressReport = _progressCalculator.Calculate(_userProgress, _arcData);
+            }
+            _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
+        }
     }
 
     private void UpdateHeaderVisibility(bool clickThroughActive)
@@ -618,7 +631,9 @@ public partial class MainWindow : Window
 
         _suppressMenuToggleEvents = true;
         menuItem.IsChecked = isEnabled;
-        menuItem.Header = isEnabled ? "Click-through (On)" : "Click-through (Off)";
+        menuItem.Header = isEnabled 
+            ? LocalizationService.Instance["Menu_ClickThroughOn"] 
+            : LocalizationService.Instance["Menu_ClickThroughOff"];
         _suppressMenuToggleEvents = false;
     }
 
@@ -702,8 +717,8 @@ public partial class MainWindow : Window
         var versionLabel = result.LatestVersion?.ToString() ?? "latest";
         _logger.Log("UpdateCheck", $"Update {versionLabel} downloaded; scheduling automatic install.");
         MessageBox.Show(this,
-            $"ArcRaidersHelper will close briefly to apply update {versionLabel}. It will reopen automatically when finished.",
-            "Applying ArcRaidersHelper update",
+            string.Format(LocalizationService.Instance["Update_Message"], versionLabel),
+            LocalizationService.Instance["Update_Applying"],
             MessageBoxButton.OK,
             MessageBoxImage.Information);
         StartUpdateInstallerProcess(extractionPath, result.DownloadedFile, versionLabel);
@@ -737,12 +752,11 @@ public partial class MainWindow : Window
     {
         var versionLabel = result.LatestVersion?.ToString() ?? "new";
         var path = result.DownloadedFile ?? "<unknown>";
-        var message =
-            $"A newer version of ArcRaidersHelper ({versionLabel}) has been downloaded to:\n{path}\n\nClose the overlay and run the downloaded package to finish installing the update.";
+        var message = string.Format(LocalizationService.Instance["Update_ReadyMessage"], versionLabel, path);
 
         MessageBox.Show(this,
             message,
-            "ArcRaidersHelper update ready",
+            LocalizationService.Instance["Update_ReadyTitle"],
             MessageBoxButton.OK,
             MessageBoxImage.Information);
     }

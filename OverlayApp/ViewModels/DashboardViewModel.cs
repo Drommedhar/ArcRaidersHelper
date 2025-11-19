@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using OverlayApp.Data;
+using OverlayApp.Infrastructure;
 using OverlayApp.Progress;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -8,8 +9,9 @@ namespace OverlayApp.ViewModels;
 
 internal sealed partial class DashboardViewModel : NavigationPaneViewModel
 {
-    public DashboardViewModel() : base("Dashboard", "🏠")
+    public DashboardViewModel() : base("Nav_Dashboard", "🏠")
     {
+        LastUpdatedLabel = LocalizationService.Instance["Dashboard_Never"];
     }
 
     public ObservableCollection<DashboardQuestSummary> HighlightQuests { get; } = new();
@@ -32,7 +34,7 @@ internal sealed partial class DashboardViewModel : NavigationPaneViewModel
     private double _hideoutCompletionPercent;
 
     [ObservableProperty]
-    private string _lastUpdatedLabel = "Never";
+    private string _lastUpdatedLabel;
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
     {
@@ -41,7 +43,7 @@ internal sealed partial class DashboardViewModel : NavigationPaneViewModel
         QuestCompletionPercent = report?.Completion.QuestCompletionPercent ?? 0;
         ProjectCompletionPercent = report?.Completion.ProjectCompletionPercent ?? 0;
         HideoutCompletionPercent = report?.Completion.HideoutCompletionPercent ?? 0;
-        LastUpdatedLabel = progress?.LastUpdatedUtc.ToLocalTime().ToString("g") ?? "Never";
+        LastUpdatedLabel = progress?.LastUpdatedUtc.ToLocalTime().ToString("g") ?? LocalizationService.Instance["Dashboard_Never"];
 
         HighlightQuests.Clear();
         if (report?.ActiveQuests is not null)
@@ -74,6 +76,7 @@ internal sealed partial class DashboardViewModel : NavigationPaneViewModel
                     ItemId = need.ItemId,
                     Name = need.DisplayName ?? need.ItemId,
                     Missing = need.MissingQuantity,
+                    MissingText = string.Format(LocalizationService.Instance["Dashboard_MissingFormat"], need.MissingQuantity),
                     ProgressPercent = need.RequiredQuantity == 0
                         ? 100
                         : (double)need.OwnedQuantity / need.RequiredQuantity * 100
@@ -101,6 +104,8 @@ internal sealed class DashboardNeedSummary
     public string Name { get; set; } = string.Empty;
 
     public int Missing { get; set; }
+
+    public string MissingText { get; set; } = string.Empty;
 
     public double ProgressPercent { get; set; }
 }

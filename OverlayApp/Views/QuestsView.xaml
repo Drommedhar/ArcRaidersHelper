@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:converters="clr-namespace:OverlayApp.Converters"
+             xmlns:infra="clr-namespace:OverlayApp.Infrastructure"
              mc:Ignorable="d">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -12,13 +13,11 @@
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
-            <TextBlock Text="Quest board"
+            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Board]}"
                        FontSize="26"
                        FontWeight="Bold"
-                       Foreground="#F0FFFFFF" />
-            <TextBlock Text="Live sync from ArcTracker"
-                       Foreground="#88FFFFFF"
-                       Margin="0,4,0,12" />
+                       Foreground="#F0FFFFFF"
+                       Margin="0,0,0,12" />
 
             <!-- Filter Controls -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
@@ -30,7 +29,7 @@
                                     <ControlTemplate TargetType="Button">
                                         <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Available" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Active]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
                                             </StackPanel>
                                         </Border>
                                     </ControlTemplate>
@@ -59,7 +58,7 @@
                                     <ControlTemplate TargetType="Button">
                                         <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Locked" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Locked]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
                                             </StackPanel>
                                         </Border>
                                     </ControlTemplate>
@@ -88,7 +87,7 @@
                                     <ControlTemplate TargetType="Button">
                                         <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Completed" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Completed]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
                                             </StackPanel>
                                         </Border>
                                     </ControlTemplate>
@@ -153,12 +152,21 @@
                                             CornerRadius="8"
                                             Padding="6,2"
                                             HorizontalAlignment="Right">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Status}" Value="NotStarted">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <TextBlock Text="{Binding Status}" FontSize="12" Foreground="#F0FFFFFF" />
                                     </Border>
                                 </DockPanel>
                                 <TextBlock Text="{Binding Trader}" Foreground="#AAFFFFFF" Margin="0,4,0,0" />
                                 <DockPanel Margin="0,10,0,2">
-                                    <TextBlock Text="Tracked"
+                                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Tracked]}"
                                                Foreground="#FFEA8A"
                                                FontSize="12"
                                                FontWeight="SemiBold"
@@ -179,7 +187,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <TextBlock Text="Unlocked By" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_UnlockedBy]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <ItemsControl ItemsSource="{Binding Prerequisites}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -197,6 +205,15 @@
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11"/>
                                                             <Border Background="#44000000" CornerRadius="4" Margin="6,0,0,0" Padding="4,0">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Status}" Value="NotStarted">
+                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
                                                                 <TextBlock Text="{Binding Status}" Foreground="#AAFFFFFF" FontSize="10"/>
                                                             </Border>
                                                         </StackPanel>
@@ -217,7 +234,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <TextBlock Text="Unlocks" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Unlocks]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <ItemsControl ItemsSource="{Binding Unlocks}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -235,6 +252,15 @@
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11"/>
                                                             <Border Background="#44000000" CornerRadius="4" Margin="6,0,0,0" Padding="4,0">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Status}" Value="NotStarted">
+                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
                                                                 <TextBlock Text="{Binding Status}" Foreground="#AAFFFFFF" FontSize="10"/>
                                                             </Border>
                                                         </StackPanel>
@@ -263,7 +289,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <TextBlock Text="Objectives" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Objectives]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <ItemsControl ItemsSource="{Binding Objectives}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
@@ -291,7 +317,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <TextBlock Text="Required Items" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_RequiredItems]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <ItemsControl ItemsSource="{Binding RequiredItems}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -343,7 +369,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <TextBlock Text="Rewards" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Rewards]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <ItemsControl ItemsSource="{Binding RewardItems}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -386,7 +412,7 @@
 
                                 </StackPanel>
                                 
-                                <Button Content="Mark as Completed" 
+                                <Button Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_MarkCompleted]}" 
                                         Command="{Binding CompleteQuestCommand}"
                                         Margin="0,8,0,0"
                                         Padding="8,4"

@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:converters="clr-namespace:OverlayApp.Converters"
+             xmlns:infra="clr-namespace:OverlayApp.Infrastructure"
              mc:Ignorable="d">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -11,11 +12,11 @@
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
-            <TextBlock Text="Hideout modules"
+            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Hideout_Title]}"
                        FontSize="26"
                        FontWeight="Bold"
                        Foreground="#F0FFFFFF" />
-            <TextBlock Text="Progress across every workstation"
+            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Hideout_Subtitle]}"
                        Foreground="#88FFFFFF"
                        Margin="0,4,0,12" />
 
@@ -56,7 +57,7 @@
                                         Padding="6,2"
                                         Visibility="{Binding Tracking, Converter={StaticResource BooleanToVisibilityConverter}}"
                                         HorizontalAlignment="Right">
-                                    <TextBlock Text="Tracked" Foreground="#F0FFFFFF" FontSize="12" />
+                                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Hideout_Tracked]}" Foreground="#F0FFFFFF" FontSize="12" />
                                 </Border>
                             </DockPanel>
                             
@@ -75,12 +76,12 @@
                                     </Button.Resources>
                                 </Button>
                                 
-                                <TextBlock Grid.Column="1" Foreground="#CCFFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Run Text="Level " />
-                                    <Run Text="{Binding CurrentLevel}" FontWeight="Bold" />
-                                    <Run Text=" / " />
-                                    <Run Text="{Binding MaxLevel}" />
-                                </TextBlock>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="#CCFFFFFF">
+                                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Hideout_Level]}" />
+                                    <TextBlock Text="{Binding CurrentLevel}" FontWeight="Bold" />
+                                    <TextBlock Text=" / " />
+                                    <TextBlock Text="{Binding MaxLevel}" />
+                                </StackPanel>
                                 
                                 <Button Grid.Column="2" Command="{Binding IncrementLevelCommand}" Content="+" Width="24" Height="24" Background="#33FFFFFF" Foreground="White" BorderThickness="0">
                                     <Button.Resources>
@@ -93,7 +94,7 @@
                             
                             <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="6" Background="#11FFFFFF" Foreground="#FFB347" BorderThickness="0" />
                             
-                            <TextBlock Text="Next Level Cost:" Foreground="#88FFFFFF" FontSize="12" Margin="0,8,0,2" />
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Hideout_NextLevelCost]}" Foreground="#88FFFFFF" FontSize="12" Margin="0,8,0,2" />
                             <TextBlock Text="{Binding NextLevelCost}" Foreground="#AAFFFFFF" FontSize="12" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>

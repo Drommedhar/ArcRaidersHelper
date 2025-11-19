@@ -1,5 +1,6 @@
 using OverlayApp.Data;
 using OverlayApp.Data.Models;
+using OverlayApp.Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -405,13 +406,6 @@ internal sealed class ProgressCalculator
 
     private static string? ResolveName(Dictionary<string, string>? localizedValues)
     {
-        if (localizedValues is null || localizedValues.Count == 0)
-        {
-            return null;
-        }
-
-        return localizedValues.TryGetValue("en", out var english) && !string.IsNullOrWhiteSpace(english)
-            ? english
-            : localizedValues.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        return LocalizationHelper.ResolveName(localizedValues);
     }
 }

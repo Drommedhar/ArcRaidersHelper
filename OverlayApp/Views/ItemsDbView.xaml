@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:converters="clr-namespace:OverlayApp.Converters"
+             xmlns:infra="clr-namespace:OverlayApp.Infrastructure"
              mc:Ignorable="d">
     <UserControl.Resources>
         <converters:ImagePathConverter x:Key="ImagePathConverter" />
@@ -19,7 +20,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Items database"
+        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_Title]}"
                    FontSize="26"
                    FontWeight="Bold"
                    Foreground="#F0FFFFFF" />
@@ -34,7 +35,7 @@
             <TextBox Height="34"
                      Padding="10,4"
                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     ToolTip="Search by name or id"
+                     ToolTip="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_SearchTooltip]}"
                      VerticalContentAlignment="Center"/>
 
             <ComboBox Grid.Column="1"
@@ -43,7 +44,7 @@
                       Height="34"
                       ItemsSource="{Binding AvailableTypes}"
                       SelectedItem="{Binding SelectedType}"
-                      ToolTip="Filter by Type">
+                      ToolTip="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_FilterTypeTooltip]}">
                 <ComboBox.ItemContainerStyle>
                     <Style TargetType="ComboBoxItem">
                         <Setter Property="Foreground" Value="Black"/>
@@ -57,7 +58,7 @@
                       Height="34"
                       ItemsSource="{Binding AvailableRarities}"
                       SelectedItem="{Binding SelectedRarity}"
-                      ToolTip="Filter by Rarity">
+                      ToolTip="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_FilterRarityTooltip]}">
                 <ComboBox.ItemContainerStyle>
                     <Style TargetType="ComboBoxItem">
                         <Setter Property="Foreground" Value="Black"/>
@@ -158,9 +159,9 @@
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2" HorizontalAlignment="Right" Margin="12,0,0,0" VerticalAlignment="Top">
-                                        <TextBlock Text="Value" Foreground="#88FFFFFF" FontSize="10" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_Value]}" Foreground="#88FFFFFF" FontSize="10" HorizontalAlignment="Right"/>
                                         <TextBlock Text="{Binding Value}" Foreground="#F0FFFFFF" FontSize="16" FontWeight="Bold" HorizontalAlignment="Right"/>
-                                        <TextBlock Text="{Binding Owned, StringFormat=Owned {0}}" Foreground="#FFB347" FontSize="12" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                                        <TextBlock Text="{Binding OwnedText}" Foreground="#FFB347" FontSize="12" HorizontalAlignment="Right" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Grid>
 
@@ -185,17 +186,17 @@
                                         </Grid.ColumnDefinitions>
                                         
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Stack Size" Foreground="#88FFFFFF" FontSize="11"/>
+                                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_StackSize]}" Foreground="#88FFFFFF" FontSize="11"/>
                                             <TextBlock Text="{Binding StackSize}" Foreground="#F0FFFFFF" FontSize="14"/>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Weight" Foreground="#88FFFFFF" FontSize="11"/>
+                                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_Weight]}" Foreground="#88FFFFFF" FontSize="11"/>
                                             <TextBlock Text="{Binding Weight, StringFormat={}{0} kg}" Foreground="#F0FFFFFF" FontSize="14"/>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="4">
-                                            <TextBlock Text="Value" Foreground="#88FFFFFF" FontSize="11"/>
+                                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_Value]}" Foreground="#88FFFFFF" FontSize="11"/>
                                             <TextBlock Text="{Binding Value}" Foreground="#F0FFFFFF" FontSize="14"/>
                                         </StackPanel>
                                     </Grid>
@@ -236,7 +237,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <TextBlock Text="Can be found in" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_FoundIn]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <TextBlock Text="{Binding FoundIn}" Foreground="#CCFFFFFF" TextWrapping="Wrap"/>
                                     </StackPanel>
 
@@ -251,7 +252,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <TextBlock Text="Recycles Into" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_RecyclesInto]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <ItemsControl ItemsSource="{Binding RecyclesInto}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -302,7 +303,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <TextBlock Text="Salvages Into" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_SalvagesInto]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <ItemsControl ItemsSource="{Binding SalvagesInto}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -343,7 +344,7 @@
                                     </StackPanel>
 
                                     <!-- Footer -->
-                                    <TextBlock Text="{Binding UpdatedAt, StringFormat=Last updated: {0}}" 
+                                    <TextBlock Text="{Binding LastUpdatedText}" 
                                                Foreground="#66FFFFFF" 
                                                FontSize="10" 
                                                FontStyle="Italic" 
