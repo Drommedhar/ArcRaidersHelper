@@ -9,6 +9,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace OverlayApp.ViewModels;
 
@@ -18,6 +19,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
     private readonly List<QuestDisplayModel> _allQuests = new();
 
     public event Action<string>? NavigationRequested;
+    public event Action<QuestDisplayModel>? RequestScrollToQuest;
 
     public QuestsViewModel(UserProgressStore progressStore) : base("Quests", "📜")
     {
@@ -69,8 +71,8 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
             if (status == QuestProgressStatus.NotStarted)
             {
                 // Check prerequisites
-                var prereqs = definition.PreviousQuestIds;
-                if (prereqs != null && prereqs.Any(pid => !completedQuestIds.Contains(pid)))
+                var previousIds = definition.PreviousQuestIds;
+                if (previousIds != null && previousIds.Any(pid => !completedQuestIds.Contains(pid)))
                 {
                     statusStr = "Locked";
                 }
@@ -112,6 +114,55 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 });
             }
 
+            var prereqs = new List<QuestReferenceViewModel>();
+            if (definition.PreviousQuestIds != null)
+            {
+                foreach (var pid in definition.PreviousQuestIds)
+                {
+                    if (snapshot.Quests.TryGetValue(pid, out var pDef))
+                    {
+                        userQuests.TryGetValue(pid, out var pProg);
+                        var pStatus = pProg?.Status ?? QuestProgressStatus.NotStarted;
+                        prereqs.Add(new QuestReferenceViewModel(NavigateToQuest)
+                        {
+                            QuestId = pid,
+                            Name = ResolveName(pDef.Name) ?? pid,
+                            Status = pStatus.ToString()
+                        });
+                    }
+                }
+            }
+
+            var unlocks = new List<QuestReferenceViewModel>();
+            if (definition.NextQuestIds != null)
+            {
+                foreach (var nid in definition.NextQuestIds)
+                {
+                    if (snapshot.Quests.TryGetValue(nid, out var nDef))
+                    {
+                        userQuests.TryGetValue(nid, out var nProg);
+                        var nStatus = nProg?.Status ?? QuestProgressStatus.NotStarted;
+                        
+                        // Check if locked
+                        if (nStatus == QuestProgressStatus.NotStarted)
+                        {
+                            var nPrereqs = nDef.PreviousQuestIds;
+                            if (nPrereqs != null && nPrereqs.Any(p => !completedQuestIds.Contains(p)))
+                            {
+                                nStatus = (QuestProgressStatus)(-1); // Locked marker
+                            }
+                        }
+
+                        unlocks.Add(new QuestReferenceViewModel(NavigateToQuest)
+                        {
+                            QuestId = nid,
+                            Name = ResolveName(nDef.Name) ?? nid,
+                            Status = nStatus == (QuestProgressStatus)(-1) ? "Locked" : nStatus.ToString()
+                        });
+                    }
+                }
+            }
+
             _allQuests.Add(new QuestDisplayModel(_progressStore, progress)
             {
                 QuestId = questId,
@@ -125,11 +176,28 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 Notes = userQuest?.Notes ?? string.Empty,
                 RequiredItems = CreateItemQuantityList(definition.RequiredItems, snapshot.Items, OnNavigate),
                 RewardItems = CreateItemQuantityList(definition.RewardItems, snapshot.Items, OnNavigate),
-                Objectives = objectives
+                Objectives = objectives,
+                Prerequisites = prereqs,
+                Unlocks = unlocks
             });
         }
 
         ApplyFilter();
+    }
+
+    private void NavigateToQuest(string questId)
+    {
+        var target = _allQuests.FirstOrDefault(q => q.QuestId == questId);
+        if (target == null) return;
+
+        if (target.Status == "Completed") SelectedFilter = "Completed";
+        else if (target.Status == "Locked") SelectedFilter = "Locked";
+        else SelectedFilter = "Available";
+
+        ApplyFilter();
+
+        target.IsExpanded = true;
+        RequestScrollToQuest?.Invoke(target);
     }
 
     private void ApplyFilter()
@@ -314,6 +382,9 @@ internal partial class QuestDisplayModel : ObservableObject
 
     public List<QuestObjectiveViewModel> Objectives { get; set; } = new();
 
+    public List<QuestReferenceViewModel> Prerequisites { get; set; } = new();
+    public List<QuestReferenceViewModel> Unlocks { get; set; } = new();
+
     [ObservableProperty]
     private bool _isExpanded;
 
@@ -348,4 +419,20 @@ public class QuestObjectiveViewModel
 {
     public string Type { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+}
+
+public class QuestReferenceViewModel
+{
+    private readonly Action<string> _navigateAction;
+
+    public QuestReferenceViewModel(Action<string> navigateAction)
+    {
+        _navigateAction = navigateAction;
+        NavigateCommand = new RelayCommand(() => _navigateAction(QuestId));
+    }
+
+    public string QuestId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public ICommand NavigateCommand { get; }
 }

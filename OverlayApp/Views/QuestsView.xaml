@@ -110,7 +110,7 @@
                 </Button>
             </StackPanel>
 
-            <ItemsControl ItemsSource="{Binding Quests}">
+            <ItemsControl x:Name="QuestsList" ItemsSource="{Binding Quests}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel IsItemsHost="True" Margin="-6" />
@@ -168,6 +168,82 @@
                                 <!-- Expanded Details -->
                                 <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,12,0,0">
                                     
+                                    <!-- Prerequisites -->
+                                    <StackPanel Margin="0,0,0,12">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Prerequisites.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Unlocked By" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <ItemsControl ItemsSource="{Binding Prerequisites}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Command="{Binding NavigateCommand}" Margin="0,0,6,6" Padding="8,4" BorderThickness="0" Background="#22FFFFFF">
+                                                        <Button.Resources>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="CornerRadius" Value="4"/>
+                                                            </Style>
+                                                        </Button.Resources>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11"/>
+                                                            <Border Background="#44000000" CornerRadius="4" Margin="6,0,0,0" Padding="4,0">
+                                                                <TextBlock Text="{Binding Status}" Foreground="#AAFFFFFF" FontSize="10"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- Unlocks -->
+                                    <StackPanel Margin="0,0,0,12">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Unlocks.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Unlocks" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <ItemsControl ItemsSource="{Binding Unlocks}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Command="{Binding NavigateCommand}" Margin="0,0,6,6" Padding="8,4" BorderThickness="0" Background="#22FFFFFF">
+                                                        <Button.Resources>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="CornerRadius" Value="4"/>
+                                                            </Style>
+                                                        </Button.Resources>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11"/>
+                                                            <Border Background="#44000000" CornerRadius="4" Margin="6,0,0,0" Padding="4,0">
+                                                                <TextBlock Text="{Binding Status}" Foreground="#AAFFFFFF" FontSize="10"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
                                     <!-- Description -->
                                     <TextBlock Text="{Binding Description}" 
                                                Foreground="#DDFFFFFF" 
