@@ -17,7 +17,7 @@ internal sealed partial class MainViewModel : ObservableObject
         NeededItems = new NeededItemsViewModel();
         NeededItems.NavigationRequested += OnNeededItemNavigationRequested;
         Hideout = new HideoutViewModel(progressStore, logger);
-        Projects = new ProjectsViewModel();
+        Projects = new ProjectsViewModel(progressStore);
         ItemsDatabase = new ItemsDbViewModel();
 
         NavigationItems = new ObservableCollection<NavigationPaneViewModel>

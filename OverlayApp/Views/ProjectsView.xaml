@@ -18,15 +18,9 @@
                        Margin="0,4,0,12" />
 
             <ItemsControl ItemsSource="{Binding Projects}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel IsItemsHost="True" Margin="-6" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Width="260"
-                                Margin="6"
+                        <Border Margin="0,0,0,12"
                                 Padding="14"
                                 CornerRadius="14"
                                 Background="#22212A33">
@@ -47,7 +41,77 @@
                                     <Run Text=" / " />
                                     <Run Text="{Binding TotalPhases}" />
                                 </TextBlock>
-                                <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" Height="10" />
+                                <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="10" Margin="0,0,0,12"/>
+
+                                <!-- Current Phase Display -->
+                                <StackPanel>
+                                    <ContentControl Content="{Binding CurrentPhase}">
+                                        <ContentControl.ContentTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontWeight="SemiBold" FontSize="14"/>
+                                                    <TextBlock Text="{Binding Description}" Foreground="#88FFFFFF" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                    
+                                                    <ItemsControl ItemsSource="{Binding Requirements}" Margin="0,0,0,12">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Text="{Binding StringFormat=• {0}}" Foreground="#AAFFFFFF" FontSize="12" Margin="0,2"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ContentControl.ContentTemplate>
+                                    </ContentControl>
+
+                                    <!-- Complete Button -->
+                                    <Button Command="{Binding CompletePhaseCommand}" Margin="0,0,0,0" Cursor="Hand">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="#FFB347" CornerRadius="6" Padding="12,8" x:Name="border">
+                                                                <TextBlock Text="Complete Phase" Foreground="#1E1E1E" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="border" Property="Background" Value="#FFC978"/>
+                                                                </Trigger>
+                                                                <Trigger Property="IsPressed" Value="True">
+                                                                    <Setter TargetName="border" Property="Background" Value="#E5A040"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding CurrentPhase}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+
+                                    <!-- Completed State -->
+                                    <TextBlock Text="Project Completed" 
+                                               Foreground="#AAFFFFFF" 
+                                               HorizontalAlignment="Center" 
+                                               Margin="0,12,0,0" 
+                                               FontStyle="Italic">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding CurrentPhase}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
