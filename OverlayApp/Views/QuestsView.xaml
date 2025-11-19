@@ -1,0 +1,109 @@
+<UserControl x:Class="OverlayApp.Views.QuestsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:OverlayApp.Converters"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock Text="Quest board"
+                       FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="#F0FFFFFF" />
+            <TextBlock Text="Live sync from ArcTracker"
+                       Foreground="#88FFFFFF"
+                       Margin="0,4,0,12" />
+
+            <ItemsControl ItemsSource="{Binding Quests}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel IsItemsHost="True" Margin="-6" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Width="300"
+                                Margin="6"
+                                Padding="14"
+                                CornerRadius="14">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#2216212D" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Status}" Value="Completed">
+                                            <Setter Property="Background" Value="#3325A85B" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Status}" Value="InProgress">
+                                            <Setter Property="Background" Value="#331E5BFF" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="SemiBold"
+                                               Foreground="#F0FFFFFF"
+                                               FontSize="16"
+                                               DockPanel.Dock="Left" />
+                                    <Border DockPanel.Dock="Right"
+                                            Background="#33000000"
+                                            CornerRadius="8"
+                                            Padding="6,2"
+                                            HorizontalAlignment="Right">
+                                        <TextBlock Text="{Binding Status}" FontSize="12" Foreground="#F0FFFFFF" />
+                                    </Border>
+                                </DockPanel>
+                                <TextBlock Text="{Binding Trader}" Foreground="#AAFFFFFF" Margin="0,4,0,0" />
+                                <ProgressBar Value="{Binding ProgressPercent}"
+                                             Maximum="100"
+                                             Height="10"
+                                             Margin="0,10,0,2" />
+                                <DockPanel>
+                                    <TextBlock Text="{Binding ProgressText}" Foreground="#CCFFFFFF" />
+                                    <TextBlock Text="Tracked"
+                                               Foreground="#FFEA8A"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Margin="4,0,0,0"
+                                               Visibility="{Binding IsTracked, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </DockPanel>
+                                
+                                <Button Content="Mark as Completed" 
+                                        Command="{Binding CompleteQuestCommand}"
+                                        Margin="0,8,0,0"
+                                        Padding="8,4"
+                                        Background="#33FFFFFF"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        Visibility="{Binding CanComplete, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="6"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
+
+                                <TextBlock Text="{Binding Notes}"
+                                           TextWrapping="Wrap"
+                                           Foreground="#88FFFFFF"
+                                           Margin="0,6,0,0"
+                                           Visibility="{Binding Notes, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="{Binding EmptyMessage}"
+                       Foreground="#AAFFFFFF"
+                       FontStyle="Italic"
+                       Margin="0,12,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

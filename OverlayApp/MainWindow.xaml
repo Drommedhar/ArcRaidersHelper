@@ -1,26 +1,25 @@
 ﻿<Window x:Class="OverlayApp.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
-        mc:Ignorable="d"
-        Title="Arc Raiders Overlay"
-        Height="900"
-        Width="1400"
-        WindowStartupLocation="CenterScreen"
-        WindowStyle="None"
-        AllowsTransparency="True"
-        ResizeMode="CanResize"
-        ShowInTaskbar="False"
-        Topmost="True"
-        Background="Transparent"
-        Loaded="OnWindowLoaded"
-        SourceInitialized="OnSourceInitialized"
-        Closing="OnWindowClosing"
-        SizeChanged="OnWindowSizeChanged"
-        LocationChanged="OnWindowLocationChanged"
-        StateChanged="OnWindowStateChanged">
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Arc Raiders Overlay"
+    Height="900"
+    Width="1400"
+    WindowStartupLocation="CenterScreen"
+    WindowStyle="None"
+    AllowsTransparency="True"
+    ResizeMode="CanResize"
+    ShowInTaskbar="False"
+    Topmost="True"
+    Background="Transparent"
+    Loaded="OnWindowLoaded"
+    SourceInitialized="OnSourceInitialized"
+    Closing="OnWindowClosing"
+    SizeChanged="OnWindowSizeChanged"
+    LocationChanged="OnWindowLocationChanged"
+    StateChanged="OnWindowStateChanged">
     <Window.Resources>
         <DropShadowEffect x:Key="OverlayShadow"
                           BlurRadius="18"
@@ -32,93 +31,187 @@
         <Border x:Name="ChromeBorder"
                 Margin="12"
                 CornerRadius="20"
-                Background="#10000000"
+                Background="#FF0F0F0F"
                 BorderBrush="#30FFFFFF"
                 BorderThickness="1"
                 Effect="{StaticResource OverlayShadow}">
             <Grid Margin="0" Background="Transparent">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
                 <Border x:Name="HeaderBar"
-                    Grid.Row="0"
-                    Background="#66000000"
-                    Padding="14"
-                    CornerRadius="20,20,0,0"
-                    MouseLeftButtonDown="OnHeaderMouseDown">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Left"
-                               Text="ArcTracker Overlay"
-                               VerticalAlignment="Center"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               Foreground="#F0FFFFFF" />
+                        Grid.Row="0"
+                        Background="#66000000"
+                        Padding="14"
+                        CornerRadius="20,20,0,0"
+                        MouseLeftButtonDown="OnHeaderMouseDown">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="Arc Raiders Helper"
+                                   VerticalAlignment="Center"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#F0FFFFFF" />
 
                         <Button x:Name="HeaderMenuButton"
-                            DockPanel.Dock="Right"
-                            Padding="8"
-                            Width="44"
-                            Height="44"
-                            Background="#22000000"
-                            BorderBrush="#55FFFFFF"
-                            BorderThickness="1"
-                            ToolTip="Overlay menu"
-                            Click="OnHeaderMenuRequested">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="MenuBorder"
-                                        CornerRadius="20"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}">
-                                    <Grid>
-                                        <Rectangle Fill="#30FFFFFF" RadiusX="20" RadiusY="20" />
-                                        <StackPanel VerticalAlignment="Center">
-                                            <Rectangle Height="2" Width="18" Fill="#F0FFFFFF" RadiusX="2" RadiusY="2" Margin="0,0,0,4" />
-                                            <Rectangle Height="2" Width="18" Fill="#F0FFFFFF" RadiusX="2" RadiusY="2" Margin="0,0,0,4" />
-                                            <Rectangle Height="2" Width="18" Fill="#F0FFFFFF" RadiusX="2" RadiusY="2" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="MenuBorder" Property="Background" Value="#44000000" />
-                                        <Setter TargetName="MenuBorder" Property="BorderBrush" Value="#88FFFFFF" />
-                                    </Trigger>
-                                    <Trigger Property="IsPressed" Value="True">
-                                        <Setter TargetName="MenuBorder" Property="Background" Value="#66000000" />
-                                        <Setter TargetName="MenuBorder" Property="BorderBrush" Value="#CCFFFFFF" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                        <Button.ContextMenu>
-                            <ContextMenu x:Name="HeaderContextMenu">
-                                <MenuItem Header="Reload"
-                                          Click="OnReloadRequested" />
-                                <MenuItem x:Name="MenuClickThroughToggle"
-                                          Header="Click-through"
-                                          IsCheckable="True"
-                                          Click="OnClickThroughMenuItemClicked" />
-                                <Separator />
-                                <MenuItem Header="Settings"
-                                          Click="OnSettingsRequested" />
-                                <MenuItem Header="Close"
-                                          Click="OnCloseRequested" />
-                            </ContextMenu>
-                        </Button.ContextMenu>
-                    </Button>
-                </DockPanel>
-            </Border>
+                                DockPanel.Dock="Right"
+                                Padding="8"
+                                Width="44"
+                                Height="44"
+                                Background="#22000000"
+                                BorderBrush="#55FFFFFF"
+                                BorderThickness="1"
+                                ToolTip="Overlay menu"
+                                Click="OnHeaderMenuRequested">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="MenuBorder"
+                                            CornerRadius="20"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}">
+                                        <Grid>
+                                            <Rectangle Fill="#30FFFFFF" RadiusX="20" RadiusY="20" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <Rectangle Height="2"
+                                                           Width="18"
+                                                           Fill="#F0FFFFFF"
+                                                           RadiusX="2"
+                                                           RadiusY="2"
+                                                           Margin="0,0,0,4" />
+                                                <Rectangle Height="2"
+                                                           Width="18"
+                                                           Fill="#F0FFFFFF"
+                                                           RadiusX="2"
+                                                           RadiusY="2"
+                                                           Margin="0,0,0,4" />
+                                                <Rectangle Height="2"
+                                                           Width="18"
+                                                           Fill="#F0FFFFFF"
+                                                           RadiusX="2"
+                                                           RadiusY="2" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="MenuBorder" Property="Background" Value="#44000000" />
+                                            <Setter TargetName="MenuBorder" Property="BorderBrush" Value="#88FFFFFF" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="MenuBorder" Property="Background" Value="#66000000" />
+                                            <Setter TargetName="MenuBorder" Property="BorderBrush" Value="#CCFFFFFF" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="HeaderContextMenu">
+                                    <MenuItem Header="Refresh data"
+                                              Click="OnReloadRequested" />
+                                    <MenuItem x:Name="MenuClickThroughToggle"
+                                              Header="Click-through"
+                                              IsCheckable="True"
+                                              Click="OnClickThroughMenuItemClicked" />
+                                    <Separator />
+                                    <MenuItem Header="Settings"
+                                              Click="OnSettingsRequested" />
+                                    <MenuItem Header="Close"
+                                              Click="OnCloseRequested" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </DockPanel>
+                </Border>
 
-            <wv2:WebView2 x:Name="OverlayView"
-                          Grid.Row="1"
-                          DefaultBackgroundColor="Transparent"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          IsHitTestVisible="True" />
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="NavigationColumn" Width="240" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border x:Name="NavigationPanel"
+                            Background="#22000000"
+                            CornerRadius="0,0,0,20"
+                            Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="Navigation"
+                                       Foreground="#AAFFFFFF"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,8" />
+                            <ListBox ItemsSource="{Binding NavigationItems}"
+                                     SelectedItem="{Binding SelectedNavigation, Mode=TwoWay}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Foreground="#F0FFFFFF"
+                                     HorizontalContentAlignment="Stretch">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="8"
+                                                CornerRadius="8"
+                                                Background="Transparent">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Icon}" FontSize="16" />
+                                                <TextBlock Text="{Binding Title}" FontSize="16" Margin="8,0,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Margin" Value="0,2" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="ItemBorder"
+                                                            Background="{TemplateBinding Background}"
+                                                            CornerRadius="8">
+                                                        <ContentPresenter HorizontalAlignment="Stretch" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#3300FFEE" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#2200FFEE" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1"
+                            Margin="12,0,12,12"
+                            Background="#33000000"
+                            CornerRadius="12">
+                        <ContentPresenter x:Name="ContentHost"
+                                          Content="{Binding CurrentView}" />
+                    </Border>
+                </Grid>
+
+                <Border Grid.Row="2"
+                        Background="#33000000"
+                        CornerRadius="0,0,20,20"
+                        Padding="12">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                        <ProgressBar Width="120"
+                                     Height="6"
+                                     Margin="0,0,8,0"
+                                     IsIndeterminate="{Binding IsBusy}" />
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Foreground="#AAFFFFFF" />
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
     </Grid>

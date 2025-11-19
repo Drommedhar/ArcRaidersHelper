@@ -1,11 +1,11 @@
-﻿using Microsoft.Web.WebView2.Core;
+﻿using OverlayApp.Data;
 using OverlayApp.Infrastructure;
+using OverlayApp.Progress;
 using OverlayApp.Properties;
+using OverlayApp.ViewModels;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -29,9 +29,7 @@ public partial class MainWindow : Window
     private const double ResizeBorderThickness = 12d;
     private const double MinimumWindowWidth = 400d;
     private const double MinimumWindowHeight = 300d;
-    private const string TrackerHost = "arctracker.io";
-    private const string DefaultTrackerUrl = "https://arctracker.io/";
-    private static readonly Uri DefaultTrackerUri = new(DefaultTrackerUrl);
+    private const double NavigationWidth = 240d;
 
     private static readonly HotkeyDefinition DefaultToggleHotkey = new(ModifierKeys.Control | ModifierKeys.Alt, Key.O);
     private static readonly HotkeyDefinition DefaultExitHotkey = new(ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.O);
@@ -41,44 +39,24 @@ public partial class MainWindow : Window
     private readonly UserSettings _settings;
     private readonly UpdateService _updateService;
     private readonly ILogger _logger;
+    private readonly ArcDataSyncService _dataSyncService;
+    private readonly CancellationTokenSource _dataSyncCts = new();
+    private readonly UserProgressStore _progressStore;
+    private readonly ProgressCalculator _progressCalculator = new();
+    private readonly MainViewModel _viewModel;
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
     private MenuItem? _clickThroughMenuItem;
     private bool _suppressMenuToggleEvents;
-    private bool _adFilterInitialized;
-    private static readonly IReadOnlyList<string> AdHostKeywords = new[]
-    {
-        "doubleclick.net",
-        "googlesyndication.com",
-        "google-analytics.com",
-        "adservice.google.com",
-        "ads.pubmatic.com",
-        "scorecardresearch.com",
-        "taboola",
-        "adsystem",
-        "advertising.com",
-        "adroll",
-        "quantserve",
-        "criteo",
-        "openx.net"
-    };
-
-    private static readonly IReadOnlyList<string> AdPathKeywords = new[]
-    {
-        "/ads",
-        "/adserver",
-        "banner",
-        "sponsor",
-        "promoted",
-        "gampad",
-        "doubleclick"
-    };
     private IntPtr _windowHandle;
     private HwndSource? _hwndSource;
     private int _baseExtendedStyle;
     private HotkeyDefinition _toggleHotkey = DefaultToggleHotkey;
     private HotkeyDefinition _exitHotkey = DefaultExitHotkey;
     private HotkeyDefinition _clickThroughHotkey = DefaultClickThroughHotkey;
+    private ArcDataSnapshot? _arcData;
+    private UserProgressState? _userProgress;
+    private ProgressReport? _progressReport;
 
     public MainWindow()
     {
@@ -86,10 +64,39 @@ public partial class MainWindow : Window
         _logger = LoggerFactory.CreateDefaultLogger();
         var githubToken = TryLoadGitHubToken();
         _updateService = new UpdateService(githubToken, _logger);
+        _dataSyncService = new ArcDataSyncService(githubToken, _logger);
+        _progressStore = new UserProgressStore(_logger);
+        _progressStore.ProgressChanged += OnProgressChanged;
         _settings = _settingsStore.Load();
-        if (string.IsNullOrWhiteSpace(_settings.TrackerUrl))
+        _viewModel = new MainViewModel(_progressStore, _logger);
+        DataContext = _viewModel;
+    }
+
+    private void OnProgressChanged(object? sender, UserProgressState newState)
+    {
+        // This event is invoked from a background thread by UserProgressStore.
+        // We perform the heavy calculation here, off the UI thread.
+        if (_arcData == null)
         {
-            _settings.TrackerUrl = DefaultTrackerUrl;
+            return;
+        }
+
+        try
+        {
+            var report = _progressCalculator.Calculate(newState, _arcData);
+
+            // Only dispatch the lightweight UI update
+            Dispatcher.Invoke(() =>
+            {
+                _userProgress = newState;
+                _progressReport = report;
+                _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
+                _logger.Log("Progress", "Progress updated from file change.");
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("Progress", $"Failed to recalculate progress: {ex.Message}");
         }
     }
 
@@ -99,10 +106,15 @@ public partial class MainWindow : Window
         ApplyTopmostSetting();
         UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
         UpdateHeaderVisibility(_settings.ClickThroughEnabled);
-        NavigateToTracker();
-
-        await InitializeWebViewAsync();
-        await ApplyWebContentStylingAsync();
+        _viewModel.SetStatus("Syncing arc data...", true);
+        try
+        {
+            await InitializeArcDataAsync(_dataSyncCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Window closing; ignore.
+        }
 
         if (_settings.HideOnLaunch)
         {
@@ -138,14 +150,12 @@ public partial class MainWindow : Window
         PersistWindowPlacementToSettings();
         Settings.Default.Save();
         _settingsStore.Save(_settings);
-        if (OverlayView?.CoreWebView2 is not null)
-        {
-            OverlayView.CoreWebView2.WebResourceRequested -= HandleWebResourceRequested;
-            OverlayView.CoreWebView2.SourceChanged -= HandleSourceChanged;
-            OverlayView.CoreWebView2.NavigationCompleted -= HandleNavigationCompleted;
-        }
         _hotkeyManager?.Dispose();
         _hwndSource?.RemoveHook(WndProc);
+        _dataSyncCts.Cancel();
+        _dataSyncService.Dispose();
+        _dataSyncCts.Dispose();
+        _progressStore.Dispose();
         _updateService.Dispose();
     }
 
@@ -160,15 +170,15 @@ public partial class MainWindow : Window
         DragMove();
     }
 
-    private void OnReloadRequested(object sender, RoutedEventArgs e)
+    private async void OnReloadRequested(object sender, RoutedEventArgs e)
     {
-        if (OverlayView.CoreWebView2 != null)
+        try
         {
-            OverlayView.Reload();
+            await RefreshArcDataAsync(forceDownload: true);
         }
-        else
+        catch (OperationCanceledException)
         {
-            _ = InitializeWebViewAsync();
+            // Window closing; ignore.
         }
     }
 
@@ -225,6 +235,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_settings.ClickThroughEnabled)
+        {
+            return;
+        }
+
         _settings.Width = Width;
         _settings.Height = Height;
     }
@@ -232,6 +247,11 @@ public partial class MainWindow : Window
     private void OnWindowLocationChanged(object? sender, EventArgs e)
     {
         if (!IsLoaded || !_isOverlayVisible || WindowState != WindowState.Normal)
+        {
+            return;
+        }
+
+        if (_settings.ClickThroughEnabled)
         {
             return;
         }
@@ -257,65 +277,62 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task InitializeWebViewAsync()
+    private Task InitializeArcDataAsync(CancellationToken cancellationToken)
+    {
+        return SynchronizeArcDataAsync(initialLoad: true, forceDownload: false, cancellationToken);
+    }
+
+    private Task RefreshArcDataAsync(bool forceDownload)
+    {
+        return SynchronizeArcDataAsync(initialLoad: false, forceDownload, _dataSyncCts.Token);
+    }
+
+    private async Task SynchronizeArcDataAsync(bool initialLoad, bool forceDownload, CancellationToken cancellationToken)
     {
         try
         {
-            if (OverlayView.CoreWebView2 is null)
-            {
-                await OverlayView.EnsureCoreWebView2Async();
-            }
+            await Dispatcher.InvokeAsync(() => _viewModel.SetStatus("Syncing arc data...", true));
+            var snapshot = initialLoad
+                ? await _dataSyncService.InitializeAsync(cancellationToken).ConfigureAwait(false)
+                : await _dataSyncService.RefreshAsync(forceDownload, cancellationToken).ConfigureAwait(false);
 
-            ConfigureWebViewDefaults();
+            _arcData = snapshot;
+            _logger.Log("DataSync", $"Arc data synchronized ({snapshot.CommitSha ?? "unknown"}); items={snapshot.Items.Count}, projects={snapshot.Projects.Count}.");
+            await InitializeProgressAsync(snapshot, cancellationToken).ConfigureAwait(false);
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
+                var label = snapshot.LastSyncedUtc == DateTimeOffset.MinValue
+                    ? "Data synchronized"
+                    : $"Data synced {snapshot.LastSyncedUtc.ToLocalTime():g}";
+                _viewModel.SetStatus(label, false);
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Log("DataSync", "Arc data sync canceled.");
+            throw;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this,
-                $"Failed to initialize the embedded browser.\n{ex.Message}",
-                "ArcTracker Overlay",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            _logger.Log("DataSync", $"Arc data sync failed: {ex.Message}");
+            await Dispatcher.InvokeAsync(() => _viewModel.SetStatus("Failed to sync arc data.", false));
         }
     }
 
-    private void ConfigureWebViewDefaults()
+    private async Task InitializeProgressAsync(ArcDataSnapshot snapshot, CancellationToken cancellationToken)
     {
-        if (OverlayView.CoreWebView2 is null)
+        try
         {
-            return;
+            _userProgress = await _progressStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+            _progressReport = _progressCalculator.Calculate(_userProgress, snapshot);
+            _logger.Log("Progress", $"Loaded {_progressReport.ActiveQuests.Count} active quests; {_progressReport.NeededItems.Count} item types missing.");
         }
-
-        var settings = OverlayView.CoreWebView2.Settings;
-        settings.AreDefaultContextMenusEnabled = true;
-        settings.AreBrowserAcceleratorKeysEnabled = true;
-        settings.AreDevToolsEnabled = true;
-        settings.IsStatusBarEnabled = false;
-
-        OverlayView.CoreWebView2.NewWindowRequested -= HandleNewWindowRequested;
-        OverlayView.CoreWebView2.NewWindowRequested += HandleNewWindowRequested;
-        OverlayView.CoreWebView2.DOMContentLoaded -= HandleDomContentLoaded;
-        OverlayView.CoreWebView2.DOMContentLoaded += HandleDomContentLoaded;
-        OverlayView.CoreWebView2.SourceChanged -= HandleSourceChanged;
-        OverlayView.CoreWebView2.SourceChanged += HandleSourceChanged;
-        OverlayView.CoreWebView2.NavigationCompleted -= HandleNavigationCompleted;
-        OverlayView.CoreWebView2.NavigationCompleted += HandleNavigationCompleted;
-        EnsureAdBlockingFilter();
-    }
-
-    private void HandleNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
-    {
-        if (OverlayView.CoreWebView2 is null)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return;
+            _logger.Log("Progress", $"Failed to load progress: {ex.Message}");
         }
-
-        e.Handled = true;
-        OverlayView.CoreWebView2.Navigate(e.Uri);
-    }
-
-    private async void HandleDomContentLoaded(object? sender, CoreWebView2DOMContentLoadedEventArgs e)
-    {
-        await ApplyWebContentStylingAsync();
     }
 
     private void ToggleOverlay()
@@ -480,10 +497,27 @@ public partial class MainWindow : Window
             ChromeBorder.IsHitTestVisible = !enabled;
         }
 
-        if (OverlayView is not null)
+        var navigationPanel = FindName("NavigationPanel") as Border;
+        var navigationColumn = FindName("NavigationColumn") as ColumnDefinition;
+
+        if (navigationPanel is not null && navigationColumn is not null)
         {
-            OverlayView.IsHitTestVisible = !enabled;
+            if (enabled && navigationPanel.Visibility == Visibility.Visible)
+            {
+                navigationPanel.Visibility = Visibility.Collapsed;
+                navigationColumn.Width = new GridLength(0);
+                Left += NavigationWidth;
+                Width -= NavigationWidth;
+            }
+            else if (!enabled && navigationPanel.Visibility == Visibility.Collapsed)
+            {
+                navigationPanel.Visibility = Visibility.Visible;
+                navigationColumn.Width = new GridLength(NavigationWidth);
+                Left -= NavigationWidth;
+                Width += NavigationWidth;
+            }
         }
+
         _settings.ClickThroughEnabled = enabled;
 
         ApplyOverlayAppearance(enabled);
@@ -512,7 +546,6 @@ public partial class MainWindow : Window
         var clickThroughOpacity = Math.Clamp(_settings.ClickThroughOverlayOpacity, 0.1, 1.0);
         var appliedOpacity = clickThroughActive ? clickThroughOpacity : baseOpacity;
         ChromeBorder.Opacity = appliedOpacity;
-        _ = ApplyWebContentStylingAsync(clickThroughActive);
     }
 
     private void ApplyTopmostSetting()
@@ -520,28 +553,9 @@ public partial class MainWindow : Window
         Topmost = _settings.AlwaysOnTop || _settings.ClickThroughEnabled;
     }
 
-    private void NavigateToTracker()
-    {
-        var trackerUri = GetTrackerUri();
-        OverlayView.Source = trackerUri;
-    }
-
-    private Uri GetTrackerUri()
-    {
-        if (Uri.TryCreate(_settings.TrackerUrl, UriKind.Absolute, out var uri))
-        {
-            return uri;
-        }
-
-        _settings.TrackerUrl = DefaultTrackerUrl;
-        _settingsStore.Save(_settings);
-        return DefaultTrackerUri;
-    }
-
     private void ApplySettingsFromDialog(UserSettings updated)
     {
         var previousClickThroughState = _settings.ClickThroughEnabled;
-        var previousHideAds = _settings.HideAds;
 
         _settings.ToggleHotkey = updated.ToggleHotkey;
         _settings.ExitHotkey = updated.ExitHotkey;
@@ -551,11 +565,8 @@ public partial class MainWindow : Window
         _settings.OverlayOpacity = updated.OverlayOpacity;
         _settings.ClickThroughOverlayOpacity = updated.ClickThroughOverlayOpacity;
         _settings.ClickThroughEnabled = updated.ClickThroughEnabled;
-        _settings.HideAds = updated.HideAds;
-        _settings.HideAds = updated.HideAds;
 
         RegisterHotkeys();
-        NavigateToTracker();
         if (previousClickThroughState != _settings.ClickThroughEnabled)
         {
             SetClickThroughMode(_settings.ClickThroughEnabled);
@@ -568,13 +579,6 @@ public partial class MainWindow : Window
 
         ApplyTopmostSetting();
         UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
-        _ = ApplyWebContentStylingAsync();
-
-        if (previousHideAds != _settings.HideAds)
-        {
-            EnsureAdBlockingFilter();
-            OverlayView?.Reload();
-        }
 
         _settingsStore.Save(_settings);
     }
@@ -602,13 +606,6 @@ public partial class MainWindow : Window
         {
             _baseExtendedStyle = NativeWindowMethods.GetWindowLong(_windowHandle, NativeWindowMethods.GWL_EXSTYLE);
         }
-    }
-
-    private double GetOverlayOpacity(bool clickThroughActive)
-    {
-        return clickThroughActive
-            ? Math.Clamp(_settings.ClickThroughOverlayOpacity, 0.1, 1.0)
-            : Math.Clamp(_settings.OverlayOpacity, 0.2, 1.0);
     }
 
     private void UpdateClickThroughMenuState(bool isEnabled)
@@ -639,221 +636,6 @@ public partial class MainWindow : Window
 
         _clickThroughMenuItem = menu.Items.OfType<MenuItem>().FirstOrDefault(item => item.Name == "MenuClickThroughToggle");
         return _clickThroughMenuItem;
-    }
-
-    private Task ApplyWebContentStylingAsync()
-    {
-        return ApplyWebContentStylingAsync(_settings.ClickThroughEnabled);
-    }
-
-    private async Task ApplyWebContentStylingAsync(bool clickThroughActive)
-    {
-        try
-        {
-            if (OverlayView?.CoreWebView2 is null)
-            {
-                return;
-            }
-
-            var opacity = GetOverlayOpacity(clickThroughActive);
-            var opacityText = opacity.ToString(CultureInfo.InvariantCulture);
-            var hideAdsFlag = _settings.HideAds ? "true" : "false";
-            var hideAdsCss = @"            iframe[src*=""ads"" i],
-            iframe[src*=""doubleclick"" i],
-            [class*=""ad-container"" i],
-            [class*=""banner-ad"" i],
-            [id*=""adslot"" i],
-            .adsbygoogle {
-                display: none !important;
-                visibility: hidden !important;
-            }";
-            var script = $@"
-(function() {{
-    try {{
-        const styleId = 'arcOverlayStyle';
-        let style = document.getElementById(styleId);
-        if (!style) {{
-            style = document.createElement('style');
-            style.id = styleId;
-            document.head.appendChild(style);
-        }}
-
-        style.textContent = `
-            html, body, #root, main {{
-                background: transparent !important;
-            }}
-            body {{
-                opacity: {opacityText};
-                transition: opacity 0.2s ease;
-            }}
-        `;
-
-        if ({hideAdsFlag}) {{
-            style.textContent += `
-{hideAdsCss}
-            `;
-        }}
-
-        document.documentElement.style.background = 'transparent';
-        document.body.style.background = 'transparent';
-    }} catch (err) {{
-        console.warn('overlay style error', err);
-    }}
-}})();";
-
-            await OverlayView.ExecuteScriptAsync(script);
-        }
-        catch
-        {
-            // Styling injection is best-effort; swallow WebView script errors.
-        }
-    }
-
-    private void EnsureAdBlockingFilter()
-    {
-        if (_adFilterInitialized || OverlayView?.CoreWebView2 is null)
-        {
-            return;
-        }
-
-        try
-        {
-            OverlayView.CoreWebView2.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
-            OverlayView.CoreWebView2.WebResourceRequested += HandleWebResourceRequested;
-            _adFilterInitialized = true;
-        }
-        catch
-        {
-            // Ignore filter failures; ad blocking is optional.
-        }
-    }
-
-    private void HandleWebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
-    {
-        if (!_settings.HideAds)
-        {
-            return;
-        }
-
-        if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri))
-        {
-            return;
-        }
-
-        if (!ShouldBlockRequest(uri))
-        {
-            return;
-        }
-
-        if (OverlayView?.CoreWebView2?.Environment is null)
-        {
-            return;
-        }
-
-        try
-        {
-            e.Response = OverlayView.CoreWebView2.Environment.CreateWebResourceResponse(Stream.Null, 204, "No Content", "Cache-Control: no-cache");
-        }
-        catch
-        {
-            // Swallow failures; worst case the ad loads.
-        }
-    }
-
-    private static bool ShouldBlockRequest(Uri uri)
-    {
-        var host = uri.Host.ToLowerInvariant();
-        if (AdHostKeywords.Any(host.Contains))
-        {
-            return true;
-        }
-
-        var path = uri.AbsolutePath.ToLowerInvariant();
-        if (AdPathKeywords.Any(path.Contains))
-        {
-            return true;
-        }
-
-        var query = uri.Query.ToLowerInvariant();
-        return AdPathKeywords.Any(query.Contains);
-    }
-
-    private void HandleNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
-    {
-        if (!e.IsSuccess || OverlayView?.CoreWebView2 is null)
-        {
-            return;
-        }
-
-        if (!Uri.TryCreate(OverlayView.CoreWebView2.Source, UriKind.Absolute, out var currentUri))
-        {
-            return;
-        }
-
-        TryUpdateTrackerLocale(currentUri);
-    }
-
-    private void HandleSourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e)
-    {
-        var source = OverlayView?.CoreWebView2?.Source;
-        if (string.IsNullOrWhiteSpace(source))
-        {
-            return;
-        }
-
-        if (Uri.TryCreate(source, UriKind.Absolute, out var uri))
-        {
-            TryUpdateTrackerLocale(uri);
-        }
-    }
-
-    private void TryUpdateTrackerLocale(Uri uri)
-    {
-        if (!IsTrackerDomain(uri))
-        {
-            return;
-        }
-
-        var hasLanguage = TryGetLanguageSegment(uri, out var segment);
-        var normalizedUrl = hasLanguage
-            ? $"{DefaultTrackerUrl}{segment}"
-            : DefaultTrackerUrl;
-
-        if (string.Equals(_settings.TrackerUrl, normalizedUrl, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        _settings.TrackerUrl = normalizedUrl;
-        _settingsStore.Save(_settings);
-    }
-
-    private static bool IsTrackerDomain(Uri uri)
-    {
-        return string.Equals(uri.Host, TrackerHost, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool TryGetLanguageSegment(Uri uri, out string segment)
-    {
-        var firstSegment = uri.AbsolutePath
-            .Split('/', StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault();
-
-        if (!string.IsNullOrWhiteSpace(firstSegment) && IsLanguageSegment(firstSegment))
-        {
-            segment = firstSegment.ToLowerInvariant();
-            return true;
-        }
-
-        segment = string.Empty;
-        return false;
-    }
-
-    private static bool IsLanguageSegment(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value)
-            && value.Length == 2
-            && value.All(char.IsLetter);
     }
 
     private async Task CheckForUpdatesAsync()

@@ -13,7 +13,6 @@ public sealed class UserSettings
     public double OverlayOpacity { get; set; } = 1.0;
     public double ClickThroughOverlayOpacity { get; set; } = 0.6;
     public string TrackerUrl { get; set; } = "https://arctracker.io";
-    public bool HideAds { get; set; }
     public string? LastDownloadedVersion { get; set; }
 
     public string ToggleHotkey { get; set; } = "Ctrl+Alt+O";

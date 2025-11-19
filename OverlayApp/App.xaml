@@ -2,8 +2,27 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OverlayApp"
+             xmlns:viewModels="clr-namespace:OverlayApp.ViewModels"
+             xmlns:views="clr-namespace:OverlayApp.Views"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <DataTemplate DataType="{x:Type viewModels:DashboardViewModel}">
+            <views:DashboardView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:QuestsViewModel}">
+            <views:QuestsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:NeededItemsViewModel}">
+            <views:NeededItemsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:HideoutViewModel}">
+            <views:HideoutView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ProjectsViewModel}">
+            <views:ProjectsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ItemsDbViewModel}">
+            <views:ItemsDbView />
+        </DataTemplate>
     </Application.Resources>
 </Application>

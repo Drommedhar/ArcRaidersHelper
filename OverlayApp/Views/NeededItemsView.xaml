@@ -1,0 +1,215 @@
+<UserControl x:Class="OverlayApp.Views.NeededItemsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:OverlayApp.Converters"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+        <converters:ImagePathConverter x:Key="ImagePathConverter" />
+        <converters:RarityColorConverter x:Key="RarityColorConverter" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Left">
+                    <TextBlock Text="Needed items"
+                               FontSize="26"
+                               FontWeight="Bold"
+                               Foreground="#F0FFFFFF" />
+                    <TextBlock Text="Grouped by source"
+                               Foreground="#88FFFFFF"
+                               Margin="0,4,0,12" />
+                </StackPanel>
+            </DockPanel>
+
+            <ItemsControl ItemsSource="{Binding Groups}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,24">
+                            <!-- Category Header -->
+                            <Border BorderBrush="#33FFFFFF" BorderThickness="0,0,0,1" Margin="0,0,0,12" Padding="0,0,0,4" Background="Transparent">
+                                <Border.InputBindings>
+                                    <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleExpandCommand}" />
+                                </Border.InputBindings>
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Background" Value="#11FFFFFF"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Category}" 
+                                               FontSize="20" 
+                                               FontWeight="Bold" 
+                                               Foreground="#FFB347"/>
+                                    <TextBlock Grid.Column="1" 
+                                               Text="▼" 
+                                               Foreground="#88FFFFFF" 
+                                               FontSize="12" 
+                                               VerticalAlignment="Center" 
+                                               Margin="0,0,8,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                        <Setter Property="Text" Value="▲"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+
+                            <!-- Sources List -->
+                            <ItemsControl ItemsSource="{Binding Sources}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,16">
+                                            <!-- Source Header -->
+                                            <Border Background="Transparent" Margin="0,0,0,8">
+                                                <Border.InputBindings>
+                                                    <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleExpandCommand}" />
+                                                </Border.InputBindings>
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Cursor" Value="Hand"/>
+                                                                <Setter Property="Background" Value="#11FFFFFF"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Name}" 
+                                                                   FontSize="16" 
+                                                                   FontWeight="SemiBold" 
+                                                                   Foreground="#F0FFFFFF"/>
+                                                        <TextBlock Text="{Binding Subtitle}" 
+                                                                   FontSize="14" 
+                                                                   Foreground="#88FFFFFF" 
+                                                                   Margin="8,2,0,0"
+                                                                   Visibility="{Binding Subtitle, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}"/>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1" 
+                                                               Text="▼" 
+                                                               Foreground="#88FFFFFF" 
+                                                               FontSize="12" 
+                                                               VerticalAlignment="Center" 
+                                                               Margin="0,0,8,0">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                        <Setter Property="Text" Value="▲"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Items Grid -->
+                                            <ItemsControl ItemsSource="{Binding Items}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel IsItemsHost="True" Margin="-6" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Width="280"
+                                                                Margin="6"
+                                                                CornerRadius="8"
+                                                                Background="#221A1F27"
+                                                                ClipToBounds="True">
+                                                            <Border.InputBindings>
+                                                                <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
+                                                            </Border.InputBindings>
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Style.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter Property="Background" Value="#331A1F27"/>
+                                                                            <Setter Property="Cursor" Value="Hand"/>
+                                                                        </Trigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="4"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <Rectangle Grid.Column="0" Fill="{Binding Rarity, Converter={StaticResource RarityColorConverter}}"/>
+
+                                                                <Grid Grid.Column="1" Margin="12">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                    </Grid.ColumnDefinitions>
+
+                                                                    <Image Grid.Column="0" 
+                                                                           Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}"
+                                                                           Width="48" Height="48" 
+                                                                           Margin="0,0,12,0"
+                                                                           VerticalAlignment="Top" />
+
+                                                                    <StackPanel Grid.Column="1">
+                                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F0FFFFFF" TextTrimming="CharacterEllipsis"/>
+                                                                        <TextBlock Text="{Binding Rarity}" Foreground="{Binding Rarity, Converter={StaticResource RarityColorConverter}}" FontSize="10" Margin="0,0,0,4"/>
+                                                                        
+                                                                        <Grid Margin="0,4,0,4">
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                                <ColumnDefinition Width="Auto"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <TextBlock Text="{Binding Missing, StringFormat=Need {0}}" FontSize="14" FontWeight="Bold" Foreground="#FFB347" />
+                                                                            <TextBlock Text="{Binding Required, StringFormat=/ {0}}" FontSize="12" Foreground="#88FFFFFF" VerticalAlignment="Bottom" Margin="4,0,0,1" Grid.Column="1"/>
+                                                                        </Grid>
+                                                                        
+                                                                        <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" Height="4" Background="#33FFFFFF" Foreground="#FFB347" BorderThickness="0"/>
+                                                                        
+                                                                        <TextBlock Text="{Binding Owned, StringFormat=Have: {0}}" Foreground="#88FFFFFF" FontSize="10" Margin="0,4,0,0"/>
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="{Binding EmptyMessage}"
+                       Foreground="#AAFFFFFF"
+                       FontStyle="Italic"
+                       Margin="0,12,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
