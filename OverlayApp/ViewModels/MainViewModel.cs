@@ -14,6 +14,7 @@ internal sealed partial class MainViewModel : ObservableObject
     {
         Dashboard = new DashboardViewModel();
         Quests = new QuestsViewModel(progressStore);
+        Quests.NavigationRequested += OnNeededItemNavigationRequested;
         NeededItems = new NeededItemsViewModel();
         NeededItems.NavigationRequested += OnNeededItemNavigationRequested;
         Hideout = new HideoutViewModel(progressStore, logger);

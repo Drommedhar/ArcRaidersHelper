@@ -8,6 +8,7 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+        <converters:ImagePathConverter x:Key="ImagePathConverter" />
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
@@ -18,6 +19,96 @@
             <TextBlock Text="Live sync from ArcTracker"
                        Foreground="#88FFFFFF"
                        Margin="0,4,0,12" />
+
+            <!-- Filter Controls -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                <Button Command="{Binding SetFilterCommand}" CommandParameter="Available" Margin="0,0,8,0" Padding="12,6" BorderThickness="0">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Available" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Background" Value="#22FFFFFF"/>
+                            <Setter Property="Foreground" Value="#AAFFFFFF"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedFilter}" Value="Available">
+                                    <Setter Property="Background" Value="#FFC107"/>
+                                    <Setter Property="Foreground" Value="#111111"/>
+                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <Button Command="{Binding SetFilterCommand}" CommandParameter="Locked" Margin="0,0,8,0" Padding="12,6" BorderThickness="0">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Locked" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Background" Value="#22FFFFFF"/>
+                            <Setter Property="Foreground" Value="#AAFFFFFF"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedFilter}" Value="Locked">
+                                    <Setter Property="Background" Value="#FFC107"/>
+                                    <Setter Property="Foreground" Value="#111111"/>
+                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <Button Command="{Binding SetFilterCommand}" CommandParameter="Completed" Padding="12,6" BorderThickness="0">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Completed" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Background" Value="#22FFFFFF"/>
+                            <Setter Property="Foreground" Value="#AAFFFFFF"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedFilter}" Value="Completed">
+                                    <Setter Property="Background" Value="#FFC107"/>
+                                    <Setter Property="Foreground" Value="#111111"/>
+                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
 
             <ItemsControl ItemsSource="{Binding Quests}">
                 <ItemsControl.ItemsPanel>
@@ -31,6 +122,9 @@
                                 Margin="6"
                                 Padding="14"
                                 CornerRadius="14">
+                            <Border.InputBindings>
+                                <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleExpandCommand}" />
+                            </Border.InputBindings>
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Setter Property="Background" Value="#2216212D" />
@@ -41,6 +135,9 @@
                                         <DataTrigger Binding="{Binding Status}" Value="InProgress">
                                             <Setter Property="Background" Value="#331E5BFF" />
                                         </DataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Cursor" Value="Hand"/>
+                                        </Trigger>
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
@@ -60,19 +157,158 @@
                                     </Border>
                                 </DockPanel>
                                 <TextBlock Text="{Binding Trader}" Foreground="#AAFFFFFF" Margin="0,4,0,0" />
-                                <ProgressBar Value="{Binding ProgressPercent}"
-                                             Maximum="100"
-                                             Height="10"
-                                             Margin="0,10,0,2" />
-                                <DockPanel>
-                                    <TextBlock Text="{Binding ProgressText}" Foreground="#CCFFFFFF" />
+                                <DockPanel Margin="0,10,0,2">
                                     <TextBlock Text="Tracked"
                                                Foreground="#FFEA8A"
                                                FontSize="12"
                                                FontWeight="SemiBold"
-                                               Margin="4,0,0,0"
                                                Visibility="{Binding IsTracked, Converter={StaticResource BooleanToVisibilityConverter}}" />
                                 </DockPanel>
+
+                                <!-- Expanded Details -->
+                                <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,12,0,0">
+                                    
+                                    <!-- Description -->
+                                    <TextBlock Text="{Binding Description}" 
+                                               Foreground="#DDFFFFFF" 
+                                               FontSize="13" 
+                                               TextWrapping="Wrap" 
+                                               Margin="0,0,0,16" 
+                                               Visibility="{Binding Description, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}"/>
+
+                                    <!-- Objectives -->
+                                    <StackPanel Margin="0,0,0,16">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Objectives.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Objectives" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <ItemsControl ItemsSource="{Binding Objectives}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="•" Foreground="#88FFFFFF" Margin="0,0,8,0"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Description}" Foreground="#CCFFFFFF" TextWrapping="Wrap"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- Required Items -->
+                                    <StackPanel Margin="0,0,0,16">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding RequiredItems.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Required Items" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <ItemsControl ItemsSource="{Binding RequiredItems}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,4,4" Padding="4" Width="130">
+                                                        <Border.InputBindings>
+                                                            <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
+                                                        </Border.InputBindings>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="#11FFFFFF"/>
+                                                                <Style.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                                        <Setter Property="Background" Value="#22FFFFFF"/>
+                                                                    </Trigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="24" Height="24" Margin="0,0,8,0"/>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="10"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- Rewards -->
+                                    <StackPanel Margin="0,0,0,16">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding RewardItems.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Rewards" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <ItemsControl ItemsSource="{Binding RewardItems}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,4,4" Padding="4" Width="130">
+                                                        <Border.InputBindings>
+                                                            <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
+                                                        </Border.InputBindings>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="#11FFFFFF"/>
+                                                                <Style.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                                        <Setter Property="Background" Value="#22FFFFFF"/>
+                                                                    </Trigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="24" Height="24" Margin="0,0,8,0"/>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="10"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                </StackPanel>
                                 
                                 <Button Content="Mark as Completed" 
                                         Command="{Binding CompleteQuestCommand}"
