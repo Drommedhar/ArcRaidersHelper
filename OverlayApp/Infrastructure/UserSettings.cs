@@ -14,6 +14,7 @@ public sealed class UserSettings
     public double ClickThroughOverlayOpacity { get; set; } = 0.6;
     public string TrackerUrl { get; set; } = "https://arctracker.io";
     public string? LastDownloadedVersion { get; set; }
+    public string Language { get; set; } = "en";
 
     public string ToggleHotkey { get; set; } = "Ctrl+Alt+O";
     public string ExitHotkey { get; set; } = "Ctrl+Alt+Shift+O";

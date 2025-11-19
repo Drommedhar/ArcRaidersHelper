@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:converters="clr-namespace:OverlayApp.Converters"
+             xmlns:infra="clr-namespace:OverlayApp.Infrastructure"
              mc:Ignorable="d">
     <UserControl.Resources>
         <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
@@ -15,11 +16,11 @@
         <StackPanel Margin="16">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Left">
-                    <TextBlock Text="Needed items"
+                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[NeededItems_Title]}"
                                FontSize="26"
                                FontWeight="Bold"
                                Foreground="#F0FFFFFF" />
-                    <TextBlock Text="Grouped by source"
+                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[NeededItems_GroupedBySource]}"
                                Foreground="#88FFFFFF"
                                Margin="0,4,0,12" />
                 </StackPanel>
@@ -49,7 +50,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Category}" 
+                                    <TextBlock Text="{Binding DisplayCategory}" 
                                                FontSize="20" 
                                                FontWeight="Bold" 
                                                Foreground="#FFB347"/>
@@ -183,13 +184,13 @@
                                                                                 <ColumnDefinition Width="*"/>
                                                                                 <ColumnDefinition Width="Auto"/>
                                                                             </Grid.ColumnDefinitions>
-                                                                            <TextBlock Text="{Binding Missing, StringFormat=Need {0}}" FontSize="14" FontWeight="Bold" Foreground="#FFB347" />
+                                                                            <TextBlock Text="{Binding NeedText}" FontSize="14" FontWeight="Bold" Foreground="#FFB347" />
                                                                             <TextBlock Text="{Binding Required, StringFormat=/ {0}}" FontSize="12" Foreground="#88FFFFFF" VerticalAlignment="Bottom" Margin="4,0,0,1" Grid.Column="1"/>
                                                                         </Grid>
                                                                         
                                                                         <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" Height="4" Background="#33FFFFFF" Foreground="#FFB347" BorderThickness="0"/>
                                                                         
-                                                                        <TextBlock Text="{Binding Owned, StringFormat=Have: {0}}" Foreground="#88FFFFFF" FontSize="10" Margin="0,4,0,0"/>
+                                                                        <TextBlock Text="{Binding HaveText}" Foreground="#88FFFFFF" FontSize="10" Margin="0,4,0,0"/>
                                                                     </StackPanel>
                                                                 </Grid>
                                                             </Grid>

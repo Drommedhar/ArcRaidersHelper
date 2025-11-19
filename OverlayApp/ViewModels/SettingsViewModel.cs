@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using OverlayApp.Infrastructure;
 using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
 
@@ -22,7 +23,30 @@ public partial class SettingsViewModel : ObservableObject
         ToggleHotkeyText = _workingCopy.ToggleHotkey;
         ExitHotkeyText = _workingCopy.ExitHotkey;
         ClickThroughHotkeyText = _workingCopy.ClickThroughHotkey;
+        SelectedLanguage = AvailableLanguages.FirstOrDefault(l => l.Code == _workingCopy.Language) ?? AvailableLanguages.First();
     }
+
+    public ObservableCollection<LanguageOption> AvailableLanguages { get; } = new()
+    {
+        new("English", "en"),
+        new("Deutsch", "de"),
+        new("Français", "fr"),
+        new("Español", "es"),
+        new("Português", "pt"),
+        new("Italiano", "it"),
+        new("Русский", "ru"),
+        new("Polski", "pl"),
+        new("한국어", "ko"),
+        new("日本語", "ja"),
+        new("简体中文", "zh-CN"),
+        new("繁體中文", "zh-TW"),
+        new("Türkçe", "tr")
+    };
+
+    public record LanguageOption(string Name, string Code);
+
+    [ObservableProperty]
+    private LanguageOption _selectedLanguage;
 
     [ObservableProperty]
     private bool _hideOnLaunch;
@@ -65,6 +89,7 @@ public partial class SettingsViewModel : ObservableObject
         updated.ToggleHotkey = toggle.ToString();
         updated.ExitHotkey = exit.ToString();
         updated.ClickThroughHotkey = click.ToString();
+        updated.Language = SelectedLanguage.Code;
         return true;
     }
 

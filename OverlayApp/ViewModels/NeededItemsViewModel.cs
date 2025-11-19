@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OverlayApp.Data;
+using OverlayApp.Infrastructure;
 using OverlayApp.Progress;
 using System;
 using System.Collections.ObjectModel;
@@ -13,21 +14,22 @@ internal sealed partial class NeededItemsViewModel : NavigationPaneViewModel
 {
     public event Action<string>? NavigationRequested;
 
-    public NeededItemsViewModel() : base("Needed Items", "📦")
+    public NeededItemsViewModel() : base("Nav_NeededItems", "📦")
     {
+        EmptyMessage = LocalizationService.Instance["NeededItems_EmptyMessage"];
     }
 
     public ObservableCollection<RequirementGroupDisplayModel> Groups { get; } = new();
 
     [ObservableProperty]
-    private string _emptyMessage = "Progress not loaded";
+    private string _emptyMessage;
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
     {
         Groups.Clear();
         if (report?.GroupedRequirements is null)
         {
-            EmptyMessage = "Progress not loaded";
+            EmptyMessage = LocalizationService.Instance["NeededItems_EmptyMessage"];
             return;
         }
 
@@ -53,6 +55,8 @@ internal sealed partial class NeededItemsViewModel : NavigationPaneViewModel
                         Owned = item.OwnedQuantity,
                         Required = item.RequiredQuantity,
                         Missing = item.MissingQuantity,
+                        NeedText = string.Format(LocalizationService.Instance["NeededItems_NeedFormat"], item.MissingQuantity),
+                        HaveText = string.Format(LocalizationService.Instance["NeededItems_HaveFormat"], item.OwnedQuantity),
                         ProgressPercent = item.RequiredQuantity == 0
                             ? 100
                             : (double)item.OwnedQuantity / item.RequiredQuantity * 100
@@ -63,7 +67,7 @@ internal sealed partial class NeededItemsViewModel : NavigationPaneViewModel
             Groups.Add(groupModel);
         }
 
-        EmptyMessage = Groups.Count == 0 ? "All tracked requirements satisfied" : string.Empty;
+        EmptyMessage = Groups.Count == 0 ? LocalizationService.Instance["NeededItems_AllSatisfied"] : string.Empty;
     }
 
     private void OnNavigate(string itemId)
@@ -74,7 +78,34 @@ internal sealed partial class NeededItemsViewModel : NavigationPaneViewModel
 
 internal sealed partial class RequirementGroupDisplayModel : ObservableObject
 {
-    public string Category { get; set; } = string.Empty;
+    private string _category = string.Empty;
+    public string Category 
+    { 
+        get => _category;
+        set
+        {
+            _category = value;
+            // Try to localize category
+            var key = $"Category_{value}";
+            var localized = LocalizationService.Instance[key];
+            // If localization returns the key itself (or if we want to be safe), check if it exists.
+            // But LocalizationService usually returns the key if missing.
+            // Here we assume if it starts with "Category_", it might be missing.
+            // But simpler: just use the value if the key is not found or same as key.
+            // Actually, let's just try to look it up.
+            if (localized != key)
+            {
+                DisplayCategory = localized;
+            }
+            else
+            {
+                DisplayCategory = value;
+            }
+        }
+    }
+
+    public string DisplayCategory { get; private set; } = string.Empty;
+
     public ObservableCollection<RequirementSourceDisplayModel> Sources { get; } = new();
 
     [ObservableProperty]
@@ -126,6 +157,9 @@ internal sealed class NeededItemDisplayModel
     public int Required { get; set; }
 
     public int Missing { get; set; }
+
+    public string NeedText { get; set; } = string.Empty;
+    public string HaveText { get; set; } = string.Empty;
 
     public double ProgressPercent { get; set; }
 

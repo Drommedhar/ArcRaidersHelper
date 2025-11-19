@@ -3,8 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:infra="clr-namespace:OverlayApp.Infrastructure"
         mc:Ignorable="d"
-        Title="Overlay Settings"
+        Title="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Title]}"
         Width="480"
         Height="520"
         WindowStartupLocation="CenterOwner"
@@ -19,7 +20,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Customize overlay behavior"
+        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Subtitle]}"
                    FontSize="20"
                    FontWeight="Bold"
                    Margin="0,0,0,12" />
@@ -27,18 +28,30 @@
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto">
             <StackPanel Orientation="Vertical">
-                <GroupBox Header="Layout">
+                <GroupBox Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_General]}">
                     <StackPanel Margin="10,6">
-                        <CheckBox Content="Hide on launch"
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Language]}" Width="130" VerticalAlignment="Center"/>
+                            <ComboBox ItemsSource="{Binding AvailableLanguages}"
+                                      SelectedItem="{Binding SelectedLanguage}"
+                                      DisplayMemberPath="Name"
+                                      Width="200" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Layout]}">
+                    <StackPanel Margin="10,6">
+                        <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_HideOnLaunch]}"
                                   IsChecked="{Binding HideOnLaunch}" />
-                        <CheckBox Content="Always on top"
+                        <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_AlwaysOnTop]}"
                                   IsChecked="{Binding AlwaysOnTop}" />
-                        <CheckBox Content="Enable click-through by default"
+                        <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_ClickThroughDefault]}"
                                   IsChecked="{Binding ClickThroughEnabled}" />
                         <StackPanel Orientation="Horizontal"
                                     VerticalAlignment="Center"
                                     Margin="0,6,0,0">
-                            <TextBlock Text="Overlay opacity"
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Opacity]}"
                                        VerticalAlignment="Center"
                                        Margin="0,0,12,0" />
                             <Slider Minimum="0.2"
@@ -52,7 +65,7 @@
                         <StackPanel Orientation="Horizontal"
                                 VerticalAlignment="Center"
                                 Margin="0,6,0,0">
-                            <TextBlock Text="Click-through opacity"
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_ClickThroughOpacity]}"
                                    VerticalAlignment="Center"
                                    Margin="0,0,12,0" />
                             <Slider Minimum="0.1"
@@ -66,24 +79,24 @@
                     </StackPanel>
                 </GroupBox>
 
-                <GroupBox Header="Hotkeys">
+                <GroupBox Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Hotkeys]}">
                     <StackPanel Margin="10,6">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
-                            <TextBlock Text="Toggle"
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Toggle]}"
                                        Width="130" />
                             <TextBox Text="{Binding ToggleHotkeyText, Mode=TwoWay}" Width="220" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
-                            <TextBlock Text="Exit"
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Exit]}"
                                        Width="130" />
                             <TextBox Text="{Binding ExitHotkeyText, Mode=TwoWay}" Width="220" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
-                            <TextBlock Text="Click-through"
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_ClickThrough]}"
                                        Width="130" />
                             <TextBox Text="{Binding ClickThroughHotkeyText, Mode=TwoWay}" Width="220" />
                         </StackPanel>
-                        <TextBlock Text="Format example: Ctrl+Alt+T"
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_HotkeyExample]}"
                                    Foreground="#AAFFFFFF"
                                    FontSize="12" />
                     </StackPanel>
@@ -95,10 +108,10 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,16,0,0">
-            <Button Content="Cancel"
+            <Button Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Cancel]}"
                     Width="80"
                     Click="OnCancel" />
-                <Button Content="Apply"
+                <Button Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Apply]}"
                     Margin="8,0,0,0"
                     Width="120"
                     IsDefault="True"

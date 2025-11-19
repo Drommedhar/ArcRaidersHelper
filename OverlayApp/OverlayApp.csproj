@@ -39,4 +39,10 @@
     <None Include="github_token.txt" CopyToOutputDirectory="PreserveNewest" Condition="Exists('github_token.txt')" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Resources\Localization\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

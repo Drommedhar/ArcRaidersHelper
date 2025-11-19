@@ -14,6 +14,7 @@ internal sealed partial class MainViewModel : ObservableObject
     {
         Dashboard = new DashboardViewModel();
         Quests = new QuestsViewModel(progressStore);
+        Quests.NavigationRequested += OnNeededItemNavigationRequested;
         NeededItems = new NeededItemsViewModel();
         NeededItems.NavigationRequested += OnNeededItemNavigationRequested;
         Hideout = new HideoutViewModel(progressStore, logger);
@@ -31,7 +32,7 @@ internal sealed partial class MainViewModel : ObservableObject
         };
 
         SelectedNavigation = NavigationItems.FirstOrDefault();
-        StatusMessage = "Initializing...";
+        StatusMessage = LocalizationService.Instance["Status_Initializing"];
     }
 
     public ObservableCollection<NavigationPaneViewModel> NavigationItems { get; }
@@ -87,17 +88,27 @@ internal sealed partial class MainViewModel : ObservableObject
     }
 }
 
-internal abstract class NavigationPaneViewModel : ObservableObject
+internal abstract partial class NavigationPaneViewModel : ObservableObject
 {
-    protected NavigationPaneViewModel(string title, string icon)
+    private readonly string _titleKey;
+
+    protected NavigationPaneViewModel(string titleKey, string icon)
     {
-        Title = title;
+        _titleKey = titleKey;
         Icon = icon;
+        UpdateTitle();
+        LocalizationService.Instance.PropertyChanged += (s, e) => UpdateTitle();
     }
 
-    public string Title { get; }
+    [ObservableProperty]
+    private string _title = string.Empty;
 
     public string Icon { get; }
 
     public abstract void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report);
+
+    protected void UpdateTitle()
+    {
+        Title = LocalizationService.Instance[_titleKey];
+    }
 }

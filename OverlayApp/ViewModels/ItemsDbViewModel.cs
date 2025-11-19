@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OverlayApp.Data;
 using OverlayApp.Data.Models;
+using OverlayApp.Infrastructure;
 using OverlayApp.Progress;
 using System;
 using System.Collections.Generic;
@@ -15,8 +16,9 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
 {
     private readonly List<ItemEntryViewModel> _allItems = new();
 
-    public ItemsDbViewModel() : base("Items Database", "📚")
+    public ItemsDbViewModel() : base("Nav_ItemsDb", "📚")
     {
+        EmptyMessage = LocalizationService.Instance["ItemsDb_EmptyMessage"];
     }
 
     public ObservableCollection<ItemEntryViewModel> Items { get; } = new();
@@ -33,7 +35,7 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
     private string? _selectedRarity;
 
     [ObservableProperty]
-    private string _emptyMessage = "Loading...";
+    private string _emptyMessage;
 
     [ObservableProperty]
     private ItemEntryViewModel? _scrollToItem;
@@ -53,7 +55,7 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
 
         if (snapshot?.Items is null)
         {
-            EmptyMessage = "Data not loaded";
+            EmptyMessage = LocalizationService.Instance["ItemsDb_DataNotLoaded"];
             return;
         }
 
@@ -82,7 +84,7 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
                         continue;
                     }
 
-                    var effectName = ResolveName(effectPair.Value.ToDictionary(k => k.Key, v => v.Value.ValueKind == JsonValueKind.String ? v.Value.GetString() ?? "" : v.Value.ToString())) ?? effectPair.Key;
+                    var effectName = LocalizationHelper.ResolveName(effectPair.Value.ToDictionary(k => k.Key, v => v.Value.ValueKind == JsonValueKind.String ? v.Value.GetString() ?? "" : v.Value.ToString())) ?? effectPair.Key;
                     var effectValue = effectPair.Value.TryGetValue("value", out var val) ? (val.ValueKind == JsonValueKind.String ? val.GetString() : val.ToString()) : "";
                     
                     if (!string.IsNullOrEmpty(effectName))
@@ -95,17 +97,19 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
             var newItem = new ItemEntryViewModel
             {
                 ItemId = pair.Key,
-                Name = ResolveName(entry.Name) ?? pair.Key,
-                Description = ResolveName(entry.Description) ?? string.Empty,
+                Name = LocalizationHelper.ResolveName(entry.Name) ?? pair.Key,
+                Description = LocalizationHelper.ResolveName(entry.Description) ?? string.Empty,
                 ImageFilename = entry.ImageFilename ?? string.Empty,
-                Type = type,
-                Rarity = rarity,
+                Type = GetLocalizedType(type),
+                Rarity = GetLocalizedRarity(rarity),
                 Value = entry.Value ?? 0,
                 Owned = inventory.TryGetValue(pair.Key, out var owned) ? owned : 0,
                 StackSize = entry.StackSize ?? 1,
                 Weight = entry.WeightKg ?? 0,
                 FoundIn = entry.FoundIn ?? string.Empty,
                 UpdatedAt = entry.UpdatedAt ?? string.Empty,
+                OwnedText = string.Format(LocalizationService.Instance["ItemsDb_Owned"], owned),
+                LastUpdatedText = string.Format(LocalizationService.Instance["ItemsDb_LastUpdated"], entry.UpdatedAt ?? string.Empty),
                 Effects = effects,
                 RecyclesInto = CreateItemQuantityList(entry.RecyclesInto, snapshot.Items, NavigateToItem),
                 SalvagesInto = CreateItemQuantityList(entry.SalvagesInto, snapshot.Items, NavigateToItem)
@@ -119,17 +123,33 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
             _allItems.Add(newItem);
         }
 
-        foreach (var t in types.OrderBy(t => t)) AvailableTypes.Add(t);
-        AvailableTypes.Insert(0, "All");
-        
-        foreach (var r in rarities.OrderBy(r => r)) AvailableRarities.Add(r);
-        AvailableRarities.Insert(0, "All");
+        var allString = LocalizationService.Instance["ItemsDb_Filter_All"];
 
-        SelectedType = !string.IsNullOrEmpty(currentType) && AvailableTypes.Contains(currentType) ? currentType : "All";
-        SelectedRarity = !string.IsNullOrEmpty(currentRarity) && AvailableRarities.Contains(currentRarity) ? currentRarity : "All";
+        foreach (var t in types.OrderBy(t => t)) AvailableTypes.Add(GetLocalizedType(t));
+        AvailableTypes.Insert(0, allString);
+        
+        foreach (var r in rarities.OrderBy(r => r)) AvailableRarities.Add(GetLocalizedRarity(r));
+        AvailableRarities.Insert(0, allString);
+
+        SelectedType = !string.IsNullOrEmpty(currentType) && AvailableTypes.Contains(currentType) ? currentType : allString;
+        SelectedRarity = !string.IsNullOrEmpty(currentRarity) && AvailableRarities.Contains(currentRarity) ? currentRarity : allString;
 
         ApplyFilter();
-        EmptyMessage = Items.Count == 0 ? "No items match filter" : string.Empty;
+        EmptyMessage = Items.Count == 0 ? LocalizationService.Instance["ItemsDb_NoMatch"] : string.Empty;
+    }
+
+    private string GetLocalizedType(string type)
+    {
+        var key = $"Type_{type.Replace(" ", "")}";
+        var localized = LocalizationService.Instance[key];
+        return localized != key ? localized : type;
+    }
+
+    private string GetLocalizedRarity(string rarity)
+    {
+        var key = $"Rarity_{rarity.Replace(" ", "")}";
+        var localized = LocalizationService.Instance[key];
+        return localized != key ? localized : rarity;
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
@@ -140,6 +160,7 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
     {
         Items.Clear();
         var query = SearchText?.Trim() ?? string.Empty;
+        var allString = LocalizationService.Instance["ItemsDb_Filter_All"];
         
         var filtered = _allItems.AsEnumerable();
 
@@ -148,12 +169,12 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
             filtered = filtered.Where(i => i.Name.Contains(query, StringComparison.OrdinalIgnoreCase) || i.ItemId.Contains(query, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (!string.IsNullOrEmpty(SelectedType) && !string.Equals(SelectedType, "All", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(SelectedType) && !string.Equals(SelectedType, allString, StringComparison.OrdinalIgnoreCase))
         {
             filtered = filtered.Where(i => i.Type.Equals(SelectedType, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (!string.IsNullOrEmpty(SelectedRarity) && !string.Equals(SelectedRarity, "All", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(SelectedRarity) && !string.Equals(SelectedRarity, allString, StringComparison.OrdinalIgnoreCase))
         {
             filtered = filtered.Where(i => i.Rarity.Equals(SelectedRarity, StringComparison.OrdinalIgnoreCase));
         }
@@ -172,13 +193,15 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
             return;
         }
 
+        var allString = LocalizationService.Instance["ItemsDb_Filter_All"];
+
         // Clear filters if the item is hidden
-        var matchesType = string.Equals(SelectedType, "All", StringComparison.OrdinalIgnoreCase) || string.Equals(target.Type, SelectedType, StringComparison.OrdinalIgnoreCase);
-        var matchesRarity = string.Equals(SelectedRarity, "All", StringComparison.OrdinalIgnoreCase) || string.Equals(target.Rarity, SelectedRarity, StringComparison.OrdinalIgnoreCase);
+        var matchesType = string.Equals(SelectedType, allString, StringComparison.OrdinalIgnoreCase) || string.Equals(target.Type, SelectedType, StringComparison.OrdinalIgnoreCase);
+        var matchesRarity = string.Equals(SelectedRarity, allString, StringComparison.OrdinalIgnoreCase) || string.Equals(target.Rarity, SelectedRarity, StringComparison.OrdinalIgnoreCase);
         var matchesSearch = string.IsNullOrWhiteSpace(SearchText) || target.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) || target.ItemId.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
 
-        if (!matchesType) SelectedType = "All";
-        if (!matchesRarity) SelectedRarity = "All";
+        if (!matchesType) SelectedType = allString;
+        if (!matchesRarity) SelectedRarity = allString;
         if (!matchesSearch) SearchText = string.Empty;
 
         // Expand the target item
@@ -186,18 +209,6 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
 
         ScrollToItem = target;
         RequestScrollToItem?.Invoke(target);
-    }
-
-    private static string? ResolveName(Dictionary<string, string>? values)
-    {
-        if (values is null)
-        {
-            return null;
-        }
-
-        return values.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en)
-            ? en
-            : values.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
     }
 
     private static List<ItemQuantityViewModel> CreateItemQuantityList(Dictionary<string, int>? source, IReadOnlyDictionary<string, ArcItem> allItems, Action<string> navigateAction)
@@ -213,10 +224,10 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
                 list.Add(new ItemQuantityViewModel(navigateAction)
                 {
                     ItemId = itemId,
-                    Name = ResolveName(item.Name) ?? itemId,
+                    Name = LocalizationHelper.ResolveName(item.Name) ?? itemId,
                     ImageFilename = item.ImageFilename ?? "",
                     Quantity = qty,
-                    Rarity = item.Rarity ?? "Common"
+                    Rarity = GetLocalizedRarityStatic(item.Rarity ?? "Common")
                 });
             }
             else
@@ -227,11 +238,18 @@ internal sealed partial class ItemsDbViewModel : NavigationPaneViewModel
                     Name = itemId,
                     ImageFilename = "",
                     Quantity = qty,
-                    Rarity = "Common"
+                    Rarity = GetLocalizedRarityStatic("Common")
                 });
             }
         }
         return list;
+    }
+
+    private static string GetLocalizedRarityStatic(string rarity)
+    {
+        var key = $"Rarity_{rarity.Replace(" ", "")}";
+        var localized = LocalizationService.Instance[key];
+        return localized != key ? localized : rarity;
     }
 }
 
@@ -260,6 +278,9 @@ internal sealed partial class ItemEntryViewModel : ObservableObject
     public string FoundIn { get; set; } = string.Empty;
 
     public string UpdatedAt { get; set; } = string.Empty;
+
+    public string OwnedText { get; set; } = string.Empty;
+    public string LastUpdatedText { get; set; } = string.Empty;
 
     public List<ItemEffectViewModel> Effects { get; set; } = new();
 

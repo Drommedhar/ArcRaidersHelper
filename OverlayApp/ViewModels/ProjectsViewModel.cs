@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OverlayApp.Data;
 using OverlayApp.Data.Models;
+using OverlayApp.Infrastructure;
 using OverlayApp.Progress;
 using System;
 using System.Collections.Generic;
@@ -17,15 +18,16 @@ internal sealed partial class ProjectsViewModel : NavigationPaneViewModel
     private readonly UserProgressStore _progressStore;
     private UserProgressState? _lastKnownState;
 
-    public ProjectsViewModel(UserProgressStore progressStore) : base("Projects", "🏗️")
+    public ProjectsViewModel(UserProgressStore progressStore) : base("Nav_Projects", "🏗️")
     {
         _progressStore = progressStore;
+        EmptyMessage = LocalizationService.Instance["Projects_EmptyMessage"];
     }
 
     public ObservableCollection<ProjectDisplayModel> Projects { get; } = new();
 
     [ObservableProperty]
-    private string _emptyMessage = "Progress not loaded";
+    private string _emptyMessage;
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
     {
@@ -33,7 +35,7 @@ internal sealed partial class ProjectsViewModel : NavigationPaneViewModel
         Projects.Clear();
         if (snapshot?.Projects is null || snapshot.Items is null)
         {
-            EmptyMessage = "Data not loaded";
+            EmptyMessage = LocalizationService.Instance["Projects_DataNotLoaded"];
             return;
         }
 
@@ -68,7 +70,7 @@ internal sealed partial class ProjectsViewModel : NavigationPaneViewModel
                         foreach (var req in phase.RequirementItems)
                         {
                             var itemName = snapshot.Items.TryGetValue(req.ItemId ?? "", out var item) 
-                                ? ResolveName(item.Name) 
+                                ? LocalizationHelper.ResolveName(item.Name) 
                                 : req.ItemId;
                             requirements.Add($"{req.Quantity}x {itemName}");
                         }
@@ -84,8 +86,8 @@ internal sealed partial class ProjectsViewModel : NavigationPaneViewModel
                     phases.Add(new ProjectPhaseDisplayModel
                     {
                         PhaseNumber = phase.Phase,
-                        Name = ResolveName(phase.Name) ?? $"Phase {phase.Phase}",
-                        Description = ResolveName(phase.Description) ?? string.Empty,
+                        Name = LocalizationHelper.ResolveName(phase.Name) ?? string.Format(LocalizationService.Instance["Projects_Phase"], phase.Phase),
+                        Description = LocalizationHelper.ResolveName(phase.Description) ?? string.Empty,
                         IsCompleted = phase.Phase <= phasesCompleted,
                         Requirements = requirements
                     });
@@ -97,7 +99,7 @@ internal sealed partial class ProjectsViewModel : NavigationPaneViewModel
             Projects.Add(new ProjectDisplayModel(CompletePhaseAsync)
             {
                 ProjectId = projectId,
-                Name = ResolveName(definition.Name) ?? projectId,
+                Name = LocalizationHelper.ResolveName(definition.Name) ?? projectId,
                 PhasesCompleted = phasesCompleted,
                 TotalPhases = definition.Phases?.Count ?? 0,
                 Tracking = isTracking,
@@ -106,7 +108,7 @@ internal sealed partial class ProjectsViewModel : NavigationPaneViewModel
             });
         }
 
-        EmptyMessage = Projects.Count == 0 ? "No projects found" : string.Empty;
+        EmptyMessage = Projects.Count == 0 ? LocalizationService.Instance["Projects_NoProjects"] : string.Empty;
     }
 
     private async Task CompletePhaseAsync(string projectId)
@@ -122,18 +124,6 @@ internal sealed partial class ProjectsViewModel : NavigationPaneViewModel
 
         project.HighestPhaseCompleted++;
         await _progressStore.SaveAsync(_lastKnownState, CancellationToken.None);
-    }
-
-    private static string? ResolveName(Dictionary<string, string>? values)
-    {
-        if (values is null)
-        {
-            return null;
-        }
-
-        return values.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en)
-            ? en
-            : values.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
     }
 }
 

@@ -27,16 +27,17 @@ internal sealed partial class HideoutViewModel : NavigationPaneViewModel
         { "weapon_bench", "gunsmith.png" }
     };
 
-    public HideoutViewModel(UserProgressStore progressStore, ILogger logger) : base("Hideout", "🏚️")
+    public HideoutViewModel(UserProgressStore progressStore, ILogger logger) : base("Nav_Hideout", "🏚️")
     {
         _progressStore = progressStore;
         _logger = logger;
+        EmptyMessage = LocalizationService.Instance["Hideout_EmptyMessage"];
     }
 
     public ObservableCollection<HideoutModuleDisplayModel> Modules { get; } = new();
 
     [ObservableProperty]
-    private string _emptyMessage = "Progress not loaded";
+    private string _emptyMessage;
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
     {
@@ -45,7 +46,7 @@ internal sealed partial class HideoutViewModel : NavigationPaneViewModel
             Modules.Clear();
             if (snapshot?.HideoutModules is null)
             {
-                EmptyMessage = "Data not loaded";
+                EmptyMessage = LocalizationService.Instance["Hideout_DataNotLoaded"];
                 return;
             }
 
@@ -62,7 +63,7 @@ internal sealed partial class HideoutViewModel : NavigationPaneViewModel
                 var display = new HideoutModuleDisplayModel(progress, snapshot.Items, _progressStore, _logger)
                 {
                     ModuleId = moduleId,
-                    Name = ResolveName(definition.Name) ?? moduleId,
+                    Name = LocalizationHelper.ResolveName(definition.Name) ?? moduleId,
                     ImageFilename = ModuleImageMap.TryGetValue(moduleId, out var img) ? img : $"{moduleId}.png",
                     CurrentLevel = userModule?.CurrentLevel ?? 0,
                     MaxLevel = definition.MaxLevel,
@@ -73,25 +74,13 @@ internal sealed partial class HideoutViewModel : NavigationPaneViewModel
                 Modules.Add(display);
             }
 
-            EmptyMessage = Modules.Count == 0 ? "No modules found" : string.Empty;
+            EmptyMessage = Modules.Count == 0 ? LocalizationService.Instance["Hideout_NoModules"] : string.Empty;
         }
         catch (Exception ex)
         {
             _logger.Log("HideoutViewModel", $"Error updating hideout view: {ex}");
             EmptyMessage = $"Error loading hideout: {ex.Message}";
         }
-    }
-
-    private static string? ResolveName(Dictionary<string, string>? values)
-    {
-        if (values is null)
-        {
-            return null;
-        }
-
-        return values.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en)
-            ? en
-            : values.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
     }
 }
 
@@ -137,23 +126,20 @@ internal sealed partial class HideoutModuleDisplayModel : ObservableObject
         {
             try
             {
-                if (Definition == null || CurrentLevel >= MaxLevel) return "Max Level";
-                if (Definition.Levels == null) return "Unknown";
+                if (Definition == null || CurrentLevel >= MaxLevel) return LocalizationService.Instance["Hideout_MaxLevel"];
+                if (Definition.Levels == null) return LocalizationService.Instance["Hideout_Unknown"];
                 
                 var nextLevel = Definition.Levels.FirstOrDefault(l => l.Level == CurrentLevel + 1);
-                if (nextLevel == null) return "Unknown";
+                if (nextLevel == null) return LocalizationService.Instance["Hideout_Unknown"];
 
-                if (nextLevel.RequirementItems == null || nextLevel.RequirementItems.Count == 0) return "None";
+                if (nextLevel.RequirementItems == null || nextLevel.RequirementItems.Count == 0) return LocalizationService.Instance["Hideout_None"];
 
                 var costs = nextLevel.RequirementItems.Select(r =>
                 {
-                    var name = r.ItemId ?? "Unknown";
+                    var name = r.ItemId ?? LocalizationService.Instance["Hideout_Unknown"];
                     if (r.ItemId != null && _itemDb != null && _itemDb.TryGetValue(r.ItemId, out var item))
                     {
-                        if (item.Name != null && item.Name.TryGetValue("en", out var enName))
-                        {
-                            name = enName;
-                        }
+                        name = LocalizationHelper.ResolveName(item.Name) ?? name;
                     }
                     return $"{r.Quantity}x {name}";
                 });
@@ -168,7 +154,7 @@ internal sealed partial class HideoutModuleDisplayModel : ObservableObject
                     _logger?.Log("HideoutModule", $"Error calculating cost for {ModuleId}: {ex}");
                 }
                 catch { /* Ignore logging errors */ }
-                return "Error";
+                return LocalizationService.Instance["Hideout_Error"];
             }
         }
     }

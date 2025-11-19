@@ -2,35 +2,54 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OverlayApp.Data;
 using OverlayApp.Data.Models;
+using OverlayApp.Infrastructure;
 using OverlayApp.Progress;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace OverlayApp.ViewModels;
 
 internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 {
     private readonly UserProgressStore _progressStore;
+    private readonly List<QuestDisplayModel> _allQuests = new();
 
-    public QuestsViewModel(UserProgressStore progressStore) : base("Quests", "📜")
+    public event Action<string>? NavigationRequested;
+    public event Action<QuestDisplayModel>? RequestScrollToQuest;
+
+    public QuestsViewModel(UserProgressStore progressStore) : base("Nav_Quests", "📜")
     {
         _progressStore = progressStore;
+        EmptyMessage = LocalizationService.Instance["Quests_EmptyMessage"];
     }
 
     public ObservableCollection<QuestDisplayModel> Quests { get; } = new();
 
     [ObservableProperty]
-    private string _emptyMessage = "Progress not loaded";
+    private string _emptyMessage;
+
+    [ObservableProperty]
+    private string _selectedFilter = "Available";
+
+    [RelayCommand]
+    private void SetFilter(string filter)
+    {
+        SelectedFilter = filter;
+        ApplyFilter();
+    }
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
     {
+        _allQuests.Clear();
         Quests.Clear();
         if (snapshot?.Quests is null)
         {
-            EmptyMessage = "Data not loaded";
+            EmptyMessage = LocalizationService.Instance["Quests_EmptyMessage"];
             return;
         }
 
@@ -42,8 +61,6 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
             .Select(q => q.QuestId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var displayList = new List<QuestDisplayModel>();
-
         foreach (var pair in snapshot.Quests)
         {
             var questId = pair.Key;
@@ -51,14 +68,15 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 
             userQuests.TryGetValue(questId, out var userQuest);
             var status = userQuest?.Status ?? QuestProgressStatus.NotStarted;
+            var statusStr = status.ToString();
 
             if (status == QuestProgressStatus.NotStarted)
             {
                 // Check prerequisites
-                var prereqs = definition.PreviousQuestIds;
-                if (prereqs != null && prereqs.Any(pid => !completedQuestIds.Contains(pid)))
+                var previousIds = definition.PreviousQuestIds;
+                if (previousIds != null && previousIds.Any(pid => !completedQuestIds.Contains(pid)))
                 {
-                    continue;
+                    statusStr = "Locked";
                 }
             }
 
@@ -69,20 +87,140 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 ? (status == QuestProgressStatus.Completed ? 100 : 0)
                 : (double)completedObjectives / totalObjectives * 100;
 
-            displayList.Add(new QuestDisplayModel(_progressStore, progress)
+            var objectives = new List<QuestObjectiveViewModel>();
+            foreach (var obj in definition.Objectives)
+            {
+                var type = GetValueIgnoreCase(obj, "type");
+                var typeStr = type?.ValueKind == JsonValueKind.String ? type.Value.GetString() : "Unknown";
+
+                string? descStr = LocalizationHelper.ResolveJsonName(obj);
+
+                if (string.IsNullOrEmpty(descStr))
+                {
+                    var keysToCheck = new[] { "description", "name", "text" };
+                    foreach (var key in keysToCheck)
+                    {
+                        var elem = GetValueIgnoreCase(obj, key);
+                        if (elem.HasValue)
+                        {
+                            descStr = LocalizationHelper.ResolveJsonElement(elem.Value);
+                            if (!string.IsNullOrEmpty(descStr)) break;
+                        }
+                    }
+                }
+
+                objectives.Add(new QuestObjectiveViewModel
+                {
+                    Type = typeStr ?? "Unknown",
+                    Description = descStr ?? ""
+                });
+            }
+
+            var prereqs = new List<QuestReferenceViewModel>();
+            if (definition.PreviousQuestIds != null)
+            {
+                foreach (var pid in definition.PreviousQuestIds)
+                {
+                    if (snapshot.Quests.TryGetValue(pid, out var pDef))
+                    {
+                        userQuests.TryGetValue(pid, out var pProg);
+                        var pStatus = pProg?.Status ?? QuestProgressStatus.NotStarted;
+                        prereqs.Add(new QuestReferenceViewModel(NavigateToQuest)
+                        {
+                            QuestId = pid,
+                            Name = LocalizationHelper.ResolveName(pDef.Name) ?? pid,
+                            Status = pStatus.ToString()
+                        });
+                    }
+                }
+            }
+
+            var unlocks = new List<QuestReferenceViewModel>();
+            if (definition.NextQuestIds != null)
+            {
+                foreach (var nid in definition.NextQuestIds)
+                {
+                    if (snapshot.Quests.TryGetValue(nid, out var nDef))
+                    {
+                        userQuests.TryGetValue(nid, out var nProg);
+                        var nStatus = nProg?.Status ?? QuestProgressStatus.NotStarted;
+                        
+                        // Check if locked
+                        if (nStatus == QuestProgressStatus.NotStarted)
+                        {
+                            var nPrereqs = nDef.PreviousQuestIds;
+                            if (nPrereqs != null && nPrereqs.Any(p => !completedQuestIds.Contains(p)))
+                            {
+                                nStatus = (QuestProgressStatus)(-1); // Locked marker
+                            }
+                        }
+
+                        unlocks.Add(new QuestReferenceViewModel(NavigateToQuest)
+                        {
+                            QuestId = nid,
+                            Name = LocalizationHelper.ResolveName(nDef.Name) ?? nid,
+                            Status = nStatus == (QuestProgressStatus)(-1) ? "Locked" : nStatus.ToString()
+                        });
+                    }
+                }
+            }
+
+            _allQuests.Add(new QuestDisplayModel(_progressStore, progress)
             {
                 QuestId = questId,
-                Name = ResolveName(definition.Name) ?? questId,
+                Name = LocalizationHelper.ResolveName(definition.Name) ?? questId,
+                Description = LocalizationHelper.ResolveName(definition.Description) ?? string.Empty,
                 Trader = definition.Trader ?? "Unknown",
-                Status = status.ToString(),
+                Status = statusStr,
                 ProgressText = totalObjectives > 0 ? $"{completedObjectives}/{totalObjectives}" : "-",
                 ProgressPercent = progressPercent,
                 IsTracked = userQuest?.Tracked ?? false,
-                Notes = userQuest?.Notes ?? string.Empty
+                Notes = userQuest?.Notes ?? string.Empty,
+                RequiredItems = CreateItemQuantityList(definition.RequiredItems, snapshot.Items, OnNavigate),
+                RewardItems = CreateItemQuantityList(definition.RewardItems, snapshot.Items, OnNavigate),
+                Objectives = objectives,
+                Prerequisites = prereqs,
+                Unlocks = unlocks
             });
         }
 
-        var sorted = displayList
+        ApplyFilter();
+    }
+
+    private void NavigateToQuest(string questId)
+    {
+        var target = _allQuests.FirstOrDefault(q => q.QuestId == questId);
+        if (target == null) return;
+
+        if (target.Status == "Completed") SelectedFilter = "Completed";
+        else if (target.Status == "Locked") SelectedFilter = "Locked";
+        else SelectedFilter = "Available";
+
+        ApplyFilter();
+
+        target.IsExpanded = true;
+        RequestScrollToQuest?.Invoke(target);
+    }
+
+    private void ApplyFilter()
+    {
+        Quests.Clear();
+        var filtered = _allQuests.AsEnumerable();
+
+        switch (SelectedFilter)
+        {
+            case "Available":
+                filtered = filtered.Where(q => q.Status != "Locked" && q.Status != "Completed");
+                break;
+            case "Locked":
+                filtered = filtered.Where(q => q.Status == "Locked");
+                break;
+            case "Completed":
+                filtered = filtered.Where(q => q.Status == "Completed");
+                break;
+        }
+
+        var sorted = filtered
             .OrderBy(q => q.Status == "Completed" ? 2 : q.Status == "NotStarted" ? 1 : 0)
             .ThenBy(q => q.Name);
 
@@ -91,19 +229,66 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
             Quests.Add(item);
         }
 
-        EmptyMessage = Quests.Count == 0 ? "No quests available" : string.Empty;
+        EmptyMessage = Quests.Count == 0 ? LocalizationService.Instance["Quests_EmptyMessage"] : string.Empty;
     }
 
-    private static string? ResolveName(Dictionary<string, string>? localized)
+    private void OnNavigate(string itemId)
     {
-        if (localized is null)
-        {
-            return null;
-        }
+        NavigationRequested?.Invoke(itemId);
+    }
 
-        return localized.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en)
-            ? en
-            : localized.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+    private static JsonElement? GetValueIgnoreCase(Dictionary<string, JsonElement> dict, string key)
+    {
+        var match = dict.Keys.FirstOrDefault(k => k.Equals(key, StringComparison.OrdinalIgnoreCase));
+        return match != null ? dict[match] : null;
+    }
+
+    private static JsonElement? GetValueIgnoreCase(JsonElement element, string key)
+    {
+        if (element.ValueKind != JsonValueKind.Object) return null;
+        foreach (var prop in element.EnumerateObject())
+        {
+            if (prop.Name.Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                return prop.Value;
+            }
+        }
+        return null;
+    }
+
+    private static List<ItemQuantityViewModel> CreateItemQuantityList(List<ProjectPhaseItemRequirement>? requirements, IReadOnlyDictionary<string, ArcItem>? allItems, Action<string> navigateAction)
+    {
+        if (requirements == null || allItems == null) return new();
+        
+        var list = new List<ItemQuantityViewModel>();
+        foreach (var req in requirements)
+        {
+            if (string.IsNullOrEmpty(req.ItemId)) continue;
+
+            if (allItems.TryGetValue(req.ItemId, out var item))
+            {
+                list.Add(new ItemQuantityViewModel(navigateAction)
+                {
+                    ItemId = req.ItemId,
+                    Name = LocalizationHelper.ResolveName(item.Name) ?? req.ItemId,
+                    ImageFilename = item.ImageFilename ?? "",
+                    Quantity = req.Quantity,
+                    Rarity = item.Rarity ?? "Common"
+                });
+            }
+            else
+            {
+                list.Add(new ItemQuantityViewModel(navigateAction)
+                {
+                    ItemId = req.ItemId,
+                    Name = req.ItemId,
+                    ImageFilename = "",
+                    Quantity = req.Quantity,
+                    Rarity = "Common"
+                });
+            }
+        }
+        return list;
     }
 }
 
@@ -122,6 +307,8 @@ internal partial class QuestDisplayModel : ObservableObject
 
     public string Name { get; set; } = string.Empty;
 
+    public string Description { get; set; } = string.Empty;
+
     public string Trader { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -136,7 +323,25 @@ internal partial class QuestDisplayModel : ObservableObject
 
     public string Notes { get; set; } = string.Empty;
 
+    public List<ItemQuantityViewModel> RequiredItems { get; set; } = new();
+
+    public List<ItemQuantityViewModel> RewardItems { get; set; } = new();
+
+    public List<QuestObjectiveViewModel> Objectives { get; set; } = new();
+
+    public List<QuestReferenceViewModel> Prerequisites { get; set; } = new();
+    public List<QuestReferenceViewModel> Unlocks { get; set; } = new();
+
+    [ObservableProperty]
+    private bool _isExpanded;
+
     public bool CanComplete => Status != "Completed";
+
+    [RelayCommand]
+    private void ToggleExpand()
+    {
+        IsExpanded = !IsExpanded;
+    }
 
     [RelayCommand(CanExecute = nameof(CanComplete))]
     private async Task CompleteQuest()
@@ -155,4 +360,26 @@ internal partial class QuestDisplayModel : ObservableObject
         
         await _progressStore.SaveAsync(_progressState, System.Threading.CancellationToken.None);
     }
+}
+
+public class QuestObjectiveViewModel
+{
+    public string Type { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+}
+
+public class QuestReferenceViewModel
+{
+    private readonly Action<string> _navigateAction;
+
+    public QuestReferenceViewModel(Action<string> navigateAction)
+    {
+        _navigateAction = navigateAction;
+        NavigateCommand = new RelayCommand(() => _navigateAction(QuestId));
+    }
+
+    public string QuestId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public ICommand NavigateCommand { get; }
 }

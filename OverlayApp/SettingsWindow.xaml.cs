@@ -25,7 +25,7 @@ public partial class SettingsWindow : Window
     {
         if (!ViewModel.ApplyChanges(out var updated))
         {
-            MessageBox.Show(this, "Please fix invalid hotkeys or URL before applying.", "ArcTracker Overlay", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, LocalizationService.Instance["Settings_InvalidHotkeys"], LocalizationService.Instance["App_Title"], MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
