@@ -1,0 +1,365 @@
+<UserControl x:Class="OverlayApp.Views.ItemsDbView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:OverlayApp.Converters"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <converters:ImagePathConverter x:Key="ImagePathConverter" />
+        <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+        <converters:RarityColorConverter x:Key="RarityColorConverter" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Items database"
+                   FontSize="26"
+                   FontWeight="Bold"
+                   Foreground="#F0FFFFFF" />
+
+        <Grid Grid.Row="1" Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox Height="34"
+                     Padding="10,4"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Search by name or id"
+                     VerticalContentAlignment="Center"/>
+
+            <ComboBox Grid.Column="1"
+                      Margin="8,0,0,0"
+                      Width="120"
+                      Height="34"
+                      ItemsSource="{Binding AvailableTypes}"
+                      SelectedItem="{Binding SelectedType}"
+                      ToolTip="Filter by Type">
+                <ComboBox.ItemContainerStyle>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="Black"/>
+                    </Style>
+                </ComboBox.ItemContainerStyle>
+            </ComboBox>
+
+            <ComboBox Grid.Column="2"
+                      Margin="8,0,0,0"
+                      Width="120"
+                      Height="34"
+                      ItemsSource="{Binding AvailableRarities}"
+                      SelectedItem="{Binding SelectedRarity}"
+                      ToolTip="Filter by Rarity">
+                <ComboBox.ItemContainerStyle>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="Black"/>
+                    </Style>
+                </ComboBox.ItemContainerStyle>
+            </ComboBox>
+        </Grid>
+
+        <ListView Grid.Row="2"
+                  x:Name="ItemsList"
+                  Margin="0,12,0,12"
+                  ItemsSource="{Binding Items}"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                  ScrollViewer.CanContentScroll="True">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Margin" Value="0,0,0,8" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <ContentPresenter />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="#221A1F27" CornerRadius="12" ClipToBounds="True">
+                        <Border.InputBindings>
+                            <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleExpandCommand}" />
+                        </Border.InputBindings>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Rectangle Grid.Column="0" Fill="{Binding Rarity, Converter={StaticResource RarityColorConverter}}"/>
+
+                            <Grid Grid.Column="1" Margin="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Summary View -->
+                                <Grid Grid.Row="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <Image Grid.Column="0" 
+                                           Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}"
+                                           Width="48" Height="48" 
+                                           Margin="0,0,12,0"
+                                           VerticalAlignment="Top" />
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                        <DockPanel>
+                                            <TextBlock Text="{Binding Type}" Foreground="#CCFFFFFF" FontSize="12" DockPanel.Dock="Right" Margin="8,2,0,0" VerticalAlignment="Bottom"/>
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F0FFFFFF" TextTrimming="CharacterEllipsis"/>
+                                        </DockPanel>
+                                        
+                                        <TextBlock Text="{Binding Rarity}" Foreground="{Binding Rarity, Converter={StaticResource RarityColorConverter}}" FontSize="12" Margin="0,0,0,2"/>
+                                        
+                                        <TextBlock Text="{Binding Description}" 
+                                                   Foreground="#AAFFFFFF" 
+                                                   FontSize="12" 
+                                                   TextWrapping="Wrap" 
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxHeight="34"
+                                                   Margin="0,2,0,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" HorizontalAlignment="Right" Margin="12,0,0,0" VerticalAlignment="Top">
+                                        <TextBlock Text="Value" Foreground="#88FFFFFF" FontSize="10" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="{Binding Value}" Foreground="#F0FFFFFF" FontSize="16" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="{Binding Owned, StringFormat=Owned {0}}" Foreground="#FFB347" FontSize="12" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Expanded Details -->
+                                <StackPanel Grid.Row="1" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,12,0,0">
+                                    
+                                    <!-- Full Description -->
+                                    <TextBlock Text="{Binding Description}" 
+                                               Foreground="#DDFFFFFF" 
+                                               FontSize="13" 
+                                               TextWrapping="Wrap" 
+                                               Margin="0,0,0,16" />
+
+                                    <!-- Stats Grid -->
+                                    <Grid Margin="0,0,0,16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="16"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="16"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Stack Size" Foreground="#88FFFFFF" FontSize="11"/>
+                                            <TextBlock Text="{Binding StackSize}" Foreground="#F0FFFFFF" FontSize="14"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Weight" Foreground="#88FFFFFF" FontSize="11"/>
+                                            <TextBlock Text="{Binding Weight, StringFormat={}{0} kg}" Foreground="#F0FFFFFF" FontSize="14"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Value" Foreground="#88FFFFFF" FontSize="11"/>
+                                            <TextBlock Text="{Binding Value}" Foreground="#F0FFFFFF" FontSize="14"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Effects -->
+                                    <ItemsControl ItemsSource="{Binding Effects}" Margin="0,0,0,16">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Name}" Foreground="#CCFFFFFF"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="#F0FFFFFF" FontWeight="SemiBold"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                        <ItemsControl.Style>
+                                            <Style TargetType="ItemsControl">
+                                                <Style.Triggers>
+                                                    <Trigger Property="HasItems" Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ItemsControl.Style>
+                                    </ItemsControl>
+
+                                    <!-- Found In -->
+                                    <StackPanel Margin="0,0,0,16">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding FoundIn}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Can be found in" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding FoundIn}" Foreground="#CCFFFFFF" TextWrapping="Wrap"/>
+                                    </StackPanel>
+
+                                    <!-- Recycles Into -->
+                                    <StackPanel Margin="0,0,0,16">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding RecyclesInto.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Recycles Into" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <ItemsControl ItemsSource="{Binding RecyclesInto}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,8,8" Padding="8" Width="200">
+                                                        <Border.InputBindings>
+                                                            <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
+                                                        </Border.InputBindings>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Style.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter Property="Background" Value="#22FFFFFF"/>
+                                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                                    </Trigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="32" Height="32" Margin="0,0,8,0"/>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="11"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- Salvages Into -->
+                                    <StackPanel Margin="0,0,0,16">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SalvagesInto.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Salvages Into" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <ItemsControl ItemsSource="{Binding SalvagesInto}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,8,8" Padding="8" Width="200">
+                                                        <Border.InputBindings>
+                                                            <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
+                                                        </Border.InputBindings>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Style.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter Property="Background" Value="#22FFFFFF"/>
+                                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                                    </Trigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="32" Height="32" Margin="0,0,8,0"/>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="11"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- Footer -->
+                                    <TextBlock Text="{Binding UpdatedAt, StringFormat=Last updated: {0}}" 
+                                               Foreground="#66FFFFFF" 
+                                               FontSize="10" 
+                                               FontStyle="Italic" 
+                                               HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <TextBlock Grid.Row="3"
+                   Text="{Binding EmptyMessage}"
+                   Foreground="#AAFFFFFF"
+                   FontStyle="Italic" />
+    </Grid>
+</UserControl>
+

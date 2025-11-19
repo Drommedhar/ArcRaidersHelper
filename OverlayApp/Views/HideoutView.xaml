@@ -1,0 +1,110 @@
+<UserControl x:Class="OverlayApp.Views.HideoutView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:OverlayApp.Converters"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <converters:ImagePathConverter x:Key="ImagePathConverter" />
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock Text="Hideout modules"
+                       FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="#F0FFFFFF" />
+            <TextBlock Text="Progress across every workstation"
+                       Foreground="#88FFFFFF"
+                       Margin="0,4,0,12" />
+
+            <ItemsControl ItemsSource="{Binding Modules}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel IsItemsHost="True" Margin="-6" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Width="280"
+                            Margin="6"
+                            Padding="14"
+                            CornerRadius="14"
+                            Background="#22201F26">
+                        <StackPanel>
+                            <DockPanel>
+                                <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" 
+                                       Width="32" Height="32" 
+                                       DockPanel.Dock="Left" 
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Center">
+                                    <Image.Style>
+                                        <Style TargetType="Image">
+                                            <Style.Triggers>
+                                                <Trigger Property="Source" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Image.Style>
+                                </Image>
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F0FFFFFF" DockPanel.Dock="Left" TextTrimming="CharacterEllipsis" MaxWidth="140" VerticalAlignment="Center"/>
+                                <Border DockPanel.Dock="Right"
+                                        Background="#33FFFFFF"
+                                        CornerRadius="8"
+                                        Padding="6,2"
+                                        Visibility="{Binding Tracking, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        HorizontalAlignment="Right">
+                                    <TextBlock Text="Tracked" Foreground="#F0FFFFFF" FontSize="12" />
+                                </Border>
+                            </DockPanel>
+                            
+                            <Grid Margin="0,8,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                
+                                <Button Grid.Column="0" Command="{Binding DecrementLevelCommand}" Content="-" Width="24" Height="24" Background="#33FFFFFF" Foreground="White" BorderThickness="0">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="4"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
+                                
+                                <TextBlock Grid.Column="1" Foreground="#CCFFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Run Text="Level " />
+                                    <Run Text="{Binding CurrentLevel}" FontWeight="Bold" />
+                                    <Run Text=" / " />
+                                    <Run Text="{Binding MaxLevel}" />
+                                </TextBlock>
+                                
+                                <Button Grid.Column="2" Command="{Binding IncrementLevelCommand}" Content="+" Width="24" Height="24" Background="#33FFFFFF" Foreground="White" BorderThickness="0">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="4"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
+                            </Grid>
+                            
+                            <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="6" Background="#11FFFFFF" Foreground="#FFB347" BorderThickness="0" />
+                            
+                            <TextBlock Text="Next Level Cost:" Foreground="#88FFFFFF" FontSize="12" Margin="0,8,0,2" />
+                            <TextBlock Text="{Binding NextLevelCost}" Foreground="#AAFFFFFF" FontSize="12" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="{Binding EmptyMessage}"
+                       Foreground="#AAFFFFFF"
+                       FontStyle="Italic"
+                       Margin="0,12,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

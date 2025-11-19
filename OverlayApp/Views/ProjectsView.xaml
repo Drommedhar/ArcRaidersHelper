@@ -1,0 +1,63 @@
+<UserControl x:Class="OverlayApp.Views.ProjectsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock Text="Workbench projects"
+                       FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="#F0FFFFFF" />
+            <TextBlock Text="Phase-based upgrades"
+                       Foreground="#88FFFFFF"
+                       Margin="0,4,0,12" />
+
+            <ItemsControl ItemsSource="{Binding Projects}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel IsItemsHost="True" Margin="-6" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Width="260"
+                                Margin="6"
+                                Padding="14"
+                                CornerRadius="14"
+                                Background="#22212A33">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
+                                    <Border DockPanel.Dock="Right"
+                                            Background="#33FFFFFF"
+                                            CornerRadius="8"
+                                            Padding="6,2"
+                                            Visibility="{Binding Tracking, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="Tracked" Foreground="#F0FFFFFF" FontSize="12" />
+                                    </Border>
+                                </DockPanel>
+                                <TextBlock Foreground="#CCFFFFFF" Margin="0,4,0,4">
+                                    <Run Text="Phase " />
+                                    <Run Text="{Binding PhasesCompleted}" />
+                                    <Run Text=" / " />
+                                    <Run Text="{Binding TotalPhases}" />
+                                </TextBlock>
+                                <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" Height="10" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="{Binding EmptyMessage}"
+                       Foreground="#AAFFFFFF"
+                       FontStyle="Italic"
+                       Margin="0,12,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
