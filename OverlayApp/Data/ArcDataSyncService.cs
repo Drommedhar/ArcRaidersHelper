@@ -16,7 +16,7 @@ namespace OverlayApp.Data;
 
 internal sealed class ArcDataSyncService : IDisposable
 {
-    private const string RepoOwner = "RaidTheory";
+    private const string RepoOwner = "Drommedhar";
     private const string RepoName = "arcraiders-data";
     private const string RepoBranch = "main";
     private static readonly Uri CommitEndpoint = new($"https://api.github.com/repos/{RepoOwner}/{RepoName}/commits/{RepoBranch}");
