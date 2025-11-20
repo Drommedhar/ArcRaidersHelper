@@ -13,6 +13,9 @@ public sealed class UserSettings
     public double OverlayOpacity { get; set; } = 1.0;
     public double ClickThroughOverlayOpacity { get; set; } = 0.6;
     public bool AutoCaptureEnabled { get; set; }
+    public bool QuestDetectionEnabled { get; set; } = true;
+    public bool ProjectDetectionEnabled { get; set; } = true;
+    public bool HideoutDetectionEnabled { get; set; } = true;
     public string TrackerUrl { get; set; } = "https://arctracker.io";
     public string? LastDownloadedVersion { get; set; }
     public string Language { get; set; } = "en";

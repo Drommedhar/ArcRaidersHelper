@@ -554,7 +554,7 @@ public partial class MainWindow : Window
             _questDetectionService.UpdateArcData(snapshot);
             if (_autoCaptureActive)
             {
-                _questDetectionService.SetEnabled(true);
+                _questDetectionService.SetEnabled(_settings.QuestDetectionEnabled);
             }
             _logger.Log("DataSync", $"Arc data synchronized ({snapshot.CommitSha ?? "unknown"}); items={snapshot.Items.Count}, projects={snapshot.Projects.Count}.");
             await InitializeProgressAsync(snapshot, cancellationToken).ConfigureAwait(false);
@@ -827,6 +827,9 @@ public partial class MainWindow : Window
         _settings.ClickThroughOverlayOpacity = updated.ClickThroughOverlayOpacity;
         _settings.ClickThroughEnabled = updated.ClickThroughEnabled;
         _settings.AutoCaptureEnabled = updated.AutoCaptureEnabled;
+        _settings.QuestDetectionEnabled = updated.QuestDetectionEnabled;
+        _settings.ProjectDetectionEnabled = updated.ProjectDetectionEnabled;
+        _settings.HideoutDetectionEnabled = updated.HideoutDetectionEnabled;
         _settings.Language = updated.Language;
 
         RegisterHotkeys();
@@ -916,7 +919,7 @@ public partial class MainWindow : Window
                 _gameCaptureService.Start();
                 _autoCaptureActive = true;
                 _logger.Log("GameCapture", "Auto capture enabled.");
-                _questDetectionService.SetEnabled(_arcData is not null);
+                _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
             }
             catch (Exception ex)
             {
