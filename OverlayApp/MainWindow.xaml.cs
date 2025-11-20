@@ -55,9 +55,11 @@ public partial class MainWindow : Window
     private readonly QuestDetectionService _questDetectionService;
     private readonly ProjectDetectionService _projectDetectionService;
     private readonly HideoutDetectionService _hideoutDetectionService;
+    private readonly ItemSlotDetectionService _itemSlotDetectionService;
     private readonly SemaphoreSlim _questDetectionGate = new(1, 1);
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
+    private DebugOverlayWindow? _debugOverlayWindow;
     private MenuItem? _clickThroughMenuItem;
     private bool _suppressMenuToggleEvents;
     private IntPtr _windowHandle;
@@ -90,7 +92,15 @@ public partial class MainWindow : Window
         _questDetectionService.QuestsDetected += OnQuestsDetected;
         _projectDetectionService = new ProjectDetectionService(_gameCaptureService, _progressStore, _logger);
         _hideoutDetectionService = new HideoutDetectionService(_gameCaptureService, _progressStore, _logger);
+        _itemSlotDetectionService = new ItemSlotDetectionService(_gameCaptureService, _logger);
+        _itemSlotDetectionService.SlotsDetected += OnSlotsDetected;
         DataContext = _viewModel;
+    }
+
+    private void OnSlotsDetected(object? sender, List<(Rect Rect, bool IsOccupied)> slots)
+    {
+        _logger.Log("MainWindow", $"Sending {slots.Count} slots to debug overlay.");
+        Dispatcher.Invoke(() => _debugOverlayWindow?.UpdateRectangles(slots));
     }
 
     private void OnProgressChanged(object? sender, UserProgressState newState)
@@ -125,6 +135,12 @@ public partial class MainWindow : Window
 
     private void OnGameFrameCaptured(object? sender, GameFrameCapturedEventArgs e)
     {
+        // Use InvokeAsync to avoid blocking the capture thread and causing deadlocks on shutdown
+        Dispatcher.InvokeAsync(() => 
+        {
+            _debugOverlayWindow?.UpdatePosition(e.Frame.ScreenLeft, e.Frame.ScreenTop, e.Frame.Width, e.Frame.Height);
+        });
+
         if (_firstCaptureFrameLogged)
         {
             return;
@@ -373,6 +389,10 @@ public partial class MainWindow : Window
             ShowOverlay();
         }
 
+        _debugOverlayWindow = new DebugOverlayWindow();
+        _debugOverlayWindow.Show();
+        _itemSlotDetectionService.SetEnabled(true);
+
         _ = CheckForUpdatesAsync();
         UpdateAutoCaptureState(_settings.AutoCaptureEnabled);
     }
@@ -411,6 +431,8 @@ public partial class MainWindow : Window
         _questDetectionService.Dispose();
         _projectDetectionService.Dispose();
         _hideoutDetectionService.Dispose();
+        _itemSlotDetectionService.Dispose();
+        _debugOverlayWindow?.Close();
         UpdateAutoCaptureState(false);
         _gameCaptureService.FrameCaptured -= OnGameFrameCaptured;
         _gameCaptureService.Dispose();
@@ -824,6 +846,10 @@ public partial class MainWindow : Window
     private void ApplyTopmostSetting()
     {
         Topmost = _settings.AlwaysOnTop || _settings.ClickThroughEnabled;
+        if (_debugOverlayWindow != null)
+        {
+            _debugOverlayWindow.Topmost = Topmost;
+        }
     }
 
     private void ApplySettingsFromDialog(UserSettings updated)
