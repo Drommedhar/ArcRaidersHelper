@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,7 +16,7 @@ namespace OverlayApp.Data;
 
 internal sealed class ArcDataSyncService : IDisposable
 {
-    private const string RepoOwner = "Drommedhar";
+    private const string RepoOwner = "RaidTheory";
     private const string RepoName = "arcraiders-data";
     private const string RepoBranch = "main";
     private static readonly Uri CommitEndpoint = new($"https://api.github.com/repos/{RepoOwner}/{RepoName}/commits/{RepoBranch}");
@@ -29,7 +30,8 @@ internal sealed class ArcDataSyncService : IDisposable
     {
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true
+        AllowTrailingCommas = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
     private ArcDataSnapshot? _cachedSnapshot;

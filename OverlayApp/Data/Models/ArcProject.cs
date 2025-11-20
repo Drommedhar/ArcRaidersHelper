@@ -55,5 +55,5 @@ internal sealed class ProjectPhaseCategoryRequirement
     public string? Category { get; set; }
 
     [JsonPropertyName("valueRequired")]
-    public int ValueRequired { get; set; }
+    public double ValueRequired { get; set; }
 }

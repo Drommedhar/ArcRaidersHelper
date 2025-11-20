@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly GameCaptureService _gameCaptureService;
     private readonly QuestDetectionService _questDetectionService;
+    private readonly ProjectDetectionService _projectDetectionService;
     private readonly SemaphoreSlim _questDetectionGate = new(1, 1);
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
@@ -86,6 +87,7 @@ public partial class MainWindow : Window
         _gameCaptureService.FrameCaptured += OnGameFrameCaptured;
         _questDetectionService = new QuestDetectionService(_gameCaptureService, _logger);
         _questDetectionService.QuestsDetected += OnQuestsDetected;
+        _projectDetectionService = new ProjectDetectionService(_gameCaptureService, _progressStore, _logger);
         DataContext = _viewModel;
     }
 
@@ -108,6 +110,7 @@ public partial class MainWindow : Window
                 _userProgress = newState;
                 _progressReport = report;
                 _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
+                _projectDetectionService.UpdateUserProgress(_userProgress);
                 _logger.Log("Progress", "Progress updated from file change.");
             });
         }
@@ -403,6 +406,7 @@ public partial class MainWindow : Window
         _updateService.Dispose();
         _questDetectionService.QuestsDetected -= OnQuestsDetected;
         _questDetectionService.Dispose();
+        _projectDetectionService.Dispose();
         UpdateAutoCaptureState(false);
         _gameCaptureService.FrameCaptured -= OnGameFrameCaptured;
         _gameCaptureService.Dispose();
@@ -552,9 +556,11 @@ public partial class MainWindow : Window
 
             _arcData = snapshot;
             _questDetectionService.UpdateArcData(snapshot);
+            _projectDetectionService.UpdateArcData(snapshot);
             if (_autoCaptureActive)
             {
                 _questDetectionService.SetEnabled(_settings.QuestDetectionEnabled);
+                _projectDetectionService.SetEnabled(_settings.ProjectDetectionEnabled);
             }
             _logger.Log("DataSync", $"Arc data synchronized ({snapshot.CommitSha ?? "unknown"}); items={snapshot.Items.Count}, projects={snapshot.Projects.Count}.");
             await InitializeProgressAsync(snapshot, cancellationToken).ConfigureAwait(false);
@@ -585,6 +591,7 @@ public partial class MainWindow : Window
         try
         {
             _userProgress = await _progressStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+            _projectDetectionService.UpdateUserProgress(_userProgress);
             _progressReport = _progressCalculator.Calculate(_userProgress, snapshot);
             _logger.Log("Progress", $"Loaded {_progressReport.ActiveQuests.Count} active quests; {_progressReport.NeededItems.Count} item types missing.");
         }
@@ -849,6 +856,12 @@ public partial class MainWindow : Window
         {
             UpdateAutoCaptureState(_settings.AutoCaptureEnabled);
         }
+        else if (_settings.AutoCaptureEnabled)
+        {
+            // If auto capture was already on, but detection settings changed, update them
+            _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
+            _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
+        }
 
         _settingsStore.Save(_settings);
 
@@ -910,7 +923,8 @@ public partial class MainWindow : Window
         {
             if (_autoCaptureActive)
             {
-                _questDetectionService.SetEnabled(_arcData is not null);
+                _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
+                _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
                 return;
             }
 
@@ -920,6 +934,7 @@ public partial class MainWindow : Window
                 _autoCaptureActive = true;
                 _logger.Log("GameCapture", "Auto capture enabled.");
                 _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
+                _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
             }
             catch (Exception ex)
             {
@@ -931,6 +946,7 @@ public partial class MainWindow : Window
                     MessageBoxImage.Error);
                 _settings.AutoCaptureEnabled = false;
                 _questDetectionService.SetEnabled(false);
+                _projectDetectionService.SetEnabled(false);
             }
         }
         else
@@ -938,6 +954,7 @@ public partial class MainWindow : Window
             if (!_autoCaptureActive)
             {
                 _questDetectionService.SetEnabled(false);
+                _projectDetectionService.SetEnabled(false);
                 return;
             }
 
@@ -950,6 +967,7 @@ public partial class MainWindow : Window
                 _autoCaptureActive = false;
                 _logger.Log("GameCapture", "Auto capture disabled.");
                 _questDetectionService.SetEnabled(false);
+                _projectDetectionService.SetEnabled(false);
             }
         }
     }
