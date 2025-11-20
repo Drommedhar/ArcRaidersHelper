@@ -1,8 +1,10 @@
 using OverlayApp.Infrastructure;
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -137,7 +139,13 @@ internal sealed class GameCaptureService : IDisposable
         {
             try
             {
-                var frame = CapturePrimaryMonitor();
+                var frame = CaptureGameWindow();
+                if (frame is null)
+                {
+                    await Task.Delay(_retryDelay, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
                 lock (_frameGate)
                 {
                     _latestFrame = frame;
@@ -199,20 +207,82 @@ internal sealed class GameCaptureService : IDisposable
         });
     }
 
-    private static GameCaptureFrame CapturePrimaryMonitor()
+    private IntPtr _gameWindowHandle = IntPtr.Zero;
+
+    private GameCaptureFrame? CaptureGameWindow()
     {
-        var width = NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSCREEN);
-        var height = NativeMethods.GetSystemMetrics(NativeMethods.SM_CYSCREEN);
-        if (width <= 0 || height <= 0)
+        if (_gameWindowHandle == IntPtr.Zero || !NativeMethods.IsWindow(_gameWindowHandle))
         {
-            throw new InvalidOperationException("Unable to determine the primary monitor size.");
+            _gameWindowHandle = FindGameWindow();
         }
 
-        var bounds = new Rectangle(0, 0, width, height);
+        if (_gameWindowHandle == IntPtr.Zero)
+        {
+            _logger.Log("GameCapture", "ARC Raiders window not found (checked process 'PioneerGame').");
+            return null;
+        }
+
+        var hWnd = _gameWindowHandle;
+
+        if (NativeMethods.IsIconic(hWnd))
+        {
+            _logger.Log("GameCapture", "ARC Raiders window is minimized.");
+            return null;
+        }
+
+        if (!NativeMethods.GetClientRect(hWnd, out var clientRect))
+        {
+            _logger.Log("GameCapture", "Failed to get client rect.");
+            return null;
+        }
+
+        var topLeft = new NativeMethods.POINT { X = clientRect.Left, Y = clientRect.Top };
+        var bottomRight = new NativeMethods.POINT { X = clientRect.Right, Y = clientRect.Bottom };
+
+        if (!NativeMethods.ClientToScreen(hWnd, ref topLeft) || !NativeMethods.ClientToScreen(hWnd, ref bottomRight))
+        {
+            _logger.Log("GameCapture", "Failed to convert client coordinates to screen coordinates.");
+            return null;
+        }
+
+        var width = bottomRight.X - topLeft.X;
+        var height = bottomRight.Y - topLeft.Y;
+
+        if (width <= 0 || height <= 0)
+        {
+            _logger.Log("GameCapture", $"Invalid window dimensions: {width}x{height}.");
+            return null;
+        }
+
+        var bounds = new Rectangle(topLeft.X, topLeft.Y, width, height);
         using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
         return GameCaptureFrame.FromBitmap(bitmap, DateTimeOffset.UtcNow, bounds.Left, bounds.Top);
+    }
+
+    private IntPtr FindGameWindow()
+    {
+        var processes = Process.GetProcessesByName("PioneerGame");
+        try
+        {
+            foreach (var process in processes)
+            {
+                if (process.MainWindowHandle != IntPtr.Zero)
+                {
+                    return process.MainWindowHandle;
+                }
+            }
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Dispose();
+            }
+        }
+
+        return IntPtr.Zero;
     }
 
     private void ThrowIfDisposed()
@@ -242,6 +312,41 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     internal static extern int GetSystemMetrics(int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    internal static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsWindow(IntPtr hWnd);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct POINT
+    {
+        public int X;
+        public int Y;
+    }
 }
 
 internal sealed class GameFrameCapturedEventArgs : EventArgs
