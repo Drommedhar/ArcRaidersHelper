@@ -5,7 +5,7 @@ A lightweight, native WPF overlay for Arc Raiders that helps you track your prog
 ## Features
 
 - **Native Overlay**: A high-performance, always-on-top overlay that blends seamlessly with your game.
-- **Progress Tracking**: Automatically syncs game data to track your Quests, Hideout upgrades, and Projects.
+- **Progress Tracking**: Track your Quests, Hideout upgrades, and Projects.
 - **Needed Items**: Quickly see what items you need to collect for your active goals.
 - **Interactive & Click-through**:
   - **Interactive Mode**: Browse data, manage settings, and check your progress.
