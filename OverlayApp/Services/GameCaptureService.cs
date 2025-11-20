@@ -6,6 +6,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
 
 namespace OverlayApp.Services;
 
@@ -281,6 +283,132 @@ internal sealed class GameCaptureFrame
     public int ScreenLeft { get; }
     public int ScreenTop { get; }
     public ReadOnlyMemory<byte> PixelBuffer => _pixelBuffer;
+
+    public Rectangle GetPixelRectangle(NormalizedRectangle region)
+    {
+        return region.ToPixelRectangle(Width, Height);
+    }
+
+    public (double R, double G, double B) GetAverageColor(NormalizedRectangle region)
+    {
+        var rect = region.ToPixelRectangle(Width, Height);
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            return (0, 0, 0);
+        }
+
+        long sumR = 0;
+        long sumG = 0;
+        long sumB = 0;
+
+        for (var y = rect.Top; y < rect.Bottom; y++)
+        {
+            var rowStart = y * Stride;
+            for (var x = rect.Left; x < rect.Right; x++)
+            {
+                var pixelIndex = rowStart + x * 4;
+                sumB += _pixelBuffer[pixelIndex];
+                sumG += _pixelBuffer[pixelIndex + 1];
+                sumR += _pixelBuffer[pixelIndex + 2];
+            }
+        }
+
+        var count = rect.Width * rect.Height;
+        if (count == 0)
+        {
+            return (0, 0, 0);
+        }
+
+        return (sumR / (double)count, sumG / (double)count, sumB / (double)count);
+    }
+
+    public double GetColorCoverage(NormalizedRectangle region, Func<byte, byte, byte, bool> predicate)
+    {
+        if (predicate is null)
+        {
+            throw new ArgumentNullException(nameof(predicate));
+        }
+
+        var rect = region.ToPixelRectangle(Width, Height);
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            return 0;
+        }
+
+        var matches = 0;
+        var total = rect.Width * rect.Height;
+
+        for (var y = rect.Top; y < rect.Bottom; y++)
+        {
+            var rowStart = y * Stride;
+            for (var x = rect.Left; x < rect.Right; x++)
+            {
+                var pixelIndex = rowStart + x * 4;
+                var b = _pixelBuffer[pixelIndex];
+                var g = _pixelBuffer[pixelIndex + 1];
+                var r = _pixelBuffer[pixelIndex + 2];
+                if (predicate(b, g, r))
+                {
+                    matches++;
+                }
+            }
+        }
+
+        if (total == 0)
+        {
+            return 0;
+        }
+
+        return matches / (double)total;
+    }
+
+    public Bitmap ExtractBitmap(NormalizedRectangle region)
+    {
+        var rect = region.ToPixelRectangle(Width, Height);
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            throw new InvalidOperationException("Region is outside of the captured frame.");
+        }
+
+        var bitmap = new Bitmap(rect.Width, rect.Height, PixelFormat.Format32bppArgb);
+        var destRect = new Rectangle(0, 0, rect.Width, rect.Height);
+        var destData = bitmap.LockBits(destRect, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        try
+        {
+            for (var y = 0; y < rect.Height; y++)
+            {
+                var sourceIndex = (rect.Top + y) * Stride + rect.Left * 4;
+                var destination = destData.Scan0 + y * destData.Stride;
+                Marshal.Copy(_pixelBuffer, sourceIndex, destination, rect.Width * 4);
+            }
+        }
+        finally
+        {
+            bitmap.UnlockBits(destData);
+        }
+
+        return bitmap;
+    }
+
+    public async Task<SoftwareBitmap> ExtractSoftwareBitmapAsync(NormalizedRectangle region, BitmapPixelFormat pixelFormat = BitmapPixelFormat.Bgra8)
+    {
+        using var bitmap = ExtractBitmap(region);
+        using var randomAccessStream = new InMemoryRandomAccessStream();
+        var stream = randomAccessStream.AsStreamForWrite();
+        try
+        {
+            bitmap.Save(stream, ImageFormat.Png);
+            await stream.FlushAsync().ConfigureAwait(false);
+            randomAccessStream.Seek(0);
+            var decoder = await BitmapDecoder.CreateAsync(randomAccessStream);
+            var softwareBitmap = await decoder.GetSoftwareBitmapAsync(pixelFormat, BitmapAlphaMode.Premultiplied);
+            return softwareBitmap;
+        }
+        finally
+        {
+            stream.Dispose();
+        }
+    }
 
     public static GameCaptureFrame FromBitmap(Bitmap bitmap, DateTimeOffset timestamp, int screenLeft, int screenTop)
     {
