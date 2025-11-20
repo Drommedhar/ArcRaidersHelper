@@ -267,7 +267,7 @@ internal sealed partial class ItemEntryViewModel : ObservableObject
 
     public string Rarity { get; set; } = string.Empty;
 
-    public int Value { get; set; }
+    public double Value { get; set; }
 
     public int Owned { get; set; }
 

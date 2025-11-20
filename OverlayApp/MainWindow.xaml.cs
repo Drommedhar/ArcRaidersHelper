@@ -2,8 +2,10 @@
 using OverlayApp.Infrastructure;
 using OverlayApp.Progress;
 using OverlayApp.Properties;
+using OverlayApp.Services;
 using OverlayApp.ViewModels;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -18,6 +20,11 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Application = System.Windows.Application;
+using Button = System.Windows.Controls.Button;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using MessageBox = System.Windows.MessageBox;
+using Point = System.Windows.Point;
 
 namespace OverlayApp;
 
@@ -44,6 +51,11 @@ public partial class MainWindow : Window
     private readonly UserProgressStore _progressStore;
     private readonly ProgressCalculator _progressCalculator = new();
     private readonly MainViewModel _viewModel;
+    private readonly GameCaptureService _gameCaptureService;
+    private readonly QuestDetectionService _questDetectionService;
+    private readonly ProjectDetectionService _projectDetectionService;
+    private readonly HideoutDetectionService _hideoutDetectionService;
+    private readonly SemaphoreSlim _questDetectionGate = new(1, 1);
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
     private MenuItem? _clickThroughMenuItem;
@@ -57,6 +69,9 @@ public partial class MainWindow : Window
     private ArcDataSnapshot? _arcData;
     private UserProgressState? _userProgress;
     private ProgressReport? _progressReport;
+    private bool _firstCaptureFrameLogged;
+    private bool _captureExclusionApplied;
+    private bool _autoCaptureActive;
 
     public MainWindow()
     {
@@ -69,6 +84,12 @@ public partial class MainWindow : Window
         _progressStore.ProgressChanged += OnProgressChanged;
         _settings = _settingsStore.Load();
         _viewModel = new MainViewModel(_progressStore, _logger);
+        _gameCaptureService = new GameCaptureService(_logger);
+        _gameCaptureService.FrameCaptured += OnGameFrameCaptured;
+        _questDetectionService = new QuestDetectionService(_gameCaptureService, _logger);
+        _questDetectionService.QuestsDetected += OnQuestsDetected;
+        _projectDetectionService = new ProjectDetectionService(_gameCaptureService, _progressStore, _logger);
+        _hideoutDetectionService = new HideoutDetectionService(_gameCaptureService, _progressStore, _logger);
         DataContext = _viewModel;
     }
 
@@ -91,6 +112,8 @@ public partial class MainWindow : Window
                 _userProgress = newState;
                 _progressReport = report;
                 _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
+                _projectDetectionService.UpdateUserProgress(_userProgress);
+                _hideoutDetectionService.UpdateUserProgress(_userProgress);
                 _logger.Log("Progress", "Progress updated from file change.");
             });
         }
@@ -99,6 +122,230 @@ public partial class MainWindow : Window
             _logger.Log("Progress", $"Failed to recalculate progress: {ex.Message}");
         }
     }
+
+    private void OnGameFrameCaptured(object? sender, GameFrameCapturedEventArgs e)
+    {
+        if (_firstCaptureFrameLogged)
+        {
+            return;
+        }
+
+        _firstCaptureFrameLogged = true;
+        _logger.Log("GameCapture", $"Receiving frames at {e.Frame.Width}x{e.Frame.Height}; debug dump: {_gameCaptureService.LatestFramePath}");
+    }
+
+    private void OnQuestsDetected(object? sender, QuestDetectionEventArgs e)
+    {
+        _logger.Log("QuestDetection", $"Detection event with {e.Matches.Count} stabilized match(es).");
+        _ = HandleQuestDetectionsAsync(e.Matches);
+    }
+
+    private async Task HandleQuestDetectionsAsync(IReadOnlyList<QuestDetectionMatch> matches)
+    {
+        if (matches == null || matches.Count == 0)
+        {
+            return;
+        }
+
+        if (_arcData?.Quests is null || _userProgress is null)
+        {
+            return;
+        }
+
+        await _questDetectionGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var stateChanges = await Dispatcher.InvokeAsync(() => ApplyAutoCompletion(matches));
+            if (stateChanges == null || stateChanges.Count == 0)
+            {
+                _logger.Log("QuestDetection", "No quest state changes were required for this detection event.");
+                return;
+            }
+
+            await _progressStore.SaveAsync(_userProgress, CancellationToken.None).ConfigureAwait(false);
+            var report = _progressCalculator.Calculate(_userProgress, _arcData);
+            _progressReport = report;
+
+            _logger.Log("QuestDetection", $"Persisted quest state updates for {stateChanges.Count} quest entry/entries.");
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("QuestDetection", $"Failed to apply quest detection: {ex.Message}");
+        }
+        finally
+        {
+            _questDetectionGate.Release();
+        }
+    }
+
+    private List<QuestStateChange> ApplyAutoCompletion(IReadOnlyList<QuestDetectionMatch> matches)
+    {
+        var updated = new List<QuestStateChange>();
+        if (_arcData?.Quests is null || _userProgress is null)
+        {
+            return updated;
+        }
+
+        foreach (var match in matches)
+        {
+            _logger.Log("QuestDetection", $"Detected quest '{match.DisplayName}' ({match.QuestId}) on screen (confidence {match.Confidence:F2}).");
+            MarkQuestProgressFromDetection(match.QuestId, updated);
+        }
+
+        MarkImplicitCompletions(matches, updated);
+
+        return updated;
+    }
+
+    private void MarkQuestProgressFromDetection(string questId, List<QuestStateChange> updatedEntries)
+    {
+        if (_arcData?.Quests is null || _userProgress is null)
+        {
+            return;
+        }
+
+        var stack = new Stack<(string QuestId, bool IsDetected)>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        stack.Push((questId, true));
+
+        while (stack.Count > 0)
+        {
+            var (current, isDetectedQuest) = stack.Pop();
+            if (!visited.Add(current))
+            {
+                continue;
+            }
+
+            if (!_arcData.Quests.TryGetValue(current, out var definition))
+            {
+                continue;
+            }
+
+            var questState = _userProgress.Quests.FirstOrDefault(q => q.QuestId.Equals(current, StringComparison.OrdinalIgnoreCase));
+            if (questState is null)
+            {
+                questState = new QuestProgressState { QuestId = current };
+                _userProgress.Quests.Add(questState);
+            }
+
+            if (!isDetectedQuest && questState.Status != QuestProgressStatus.Completed)
+            {
+                questState.Status = QuestProgressStatus.Completed;
+                updatedEntries.Add(new QuestStateChange(current, QuestProgressStatus.Completed));
+                _logger.Log("QuestDetection", $"Marked prerequisite quest '{current}' as completed.");
+            }
+
+            if (definition.PreviousQuestIds is null)
+            {
+                continue;
+            }
+
+            foreach (var previous in definition.PreviousQuestIds)
+            {
+                if (!string.IsNullOrWhiteSpace(previous))
+                {
+                    stack.Push((previous, false));
+                }
+            }
+        }
+    }
+
+    private void MarkImplicitCompletions(IReadOnlyList<QuestDetectionMatch> matches, List<QuestStateChange> updatedEntries)
+    {
+        if (_arcData?.Quests is null || _userProgress is null)
+        {
+            return;
+        }
+
+        var detectedIds = new HashSet<string>(matches.Select(m => m.QuestId), StringComparer.OrdinalIgnoreCase);
+        var completedIds = new HashSet<string>(
+            _userProgress.Quests
+                .Where(q => q.Status == QuestProgressStatus.Completed)
+                .Select(q => q.QuestId),
+            StringComparer.OrdinalIgnoreCase);
+
+        // Also include any we just marked in updatedEntries
+        foreach (var update in updatedEntries)
+        {
+            if (update.NewStatus == QuestProgressStatus.Completed)
+            {
+                completedIds.Add(update.QuestId);
+            }
+        }
+
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var kvp in _arcData.Quests)
+            {
+                var questId = kvp.Key;
+                if (completedIds.Contains(questId) || detectedIds.Contains(questId))
+                {
+                    continue;
+                }
+
+                if (AreAllPrerequisitesMet(questId, completedIds))
+                {
+                    MarkQuestAsCompleted(questId, updatedEntries);
+                    completedIds.Add(questId);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    private bool AreAllPrerequisitesMet(string questId, HashSet<string> completedIds)
+    {
+        if (_arcData?.Quests is null || !_arcData.Quests.TryGetValue(questId, out var def))
+        {
+            return false;
+        }
+
+        if (def.PreviousQuestIds is null || def.PreviousQuestIds.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var prev in def.PreviousQuestIds)
+        {
+            if (!string.IsNullOrWhiteSpace(prev) && !completedIds.Contains(prev))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void MarkQuestAsCompleted(string questId, List<QuestStateChange> updatedEntries)
+    {
+        if (_userProgress is null)
+        {
+            return;
+        }
+
+        var questState = _userProgress.Quests.FirstOrDefault(q => q.QuestId.Equals(questId, StringComparison.OrdinalIgnoreCase));
+        if (questState is null)
+        {
+            questState = new QuestProgressState { QuestId = questId };
+            _userProgress.Quests.Add(questState);
+        }
+
+        if (questState.Status != QuestProgressStatus.Completed)
+        {
+            questState.Status = QuestProgressStatus.Completed;
+            updatedEntries.Add(new QuestStateChange(questId, QuestProgressStatus.Completed));
+            _logger.Log("QuestDetection", $"Implicitly marked quest '{questId}' as completed (prereqs met, not on screen).");
+        }
+    }
+
+    private sealed record QuestStateChange(string QuestId, QuestProgressStatus NewStatus);
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
@@ -127,6 +374,7 @@ public partial class MainWindow : Window
         }
 
         _ = CheckForUpdatesAsync();
+        UpdateAutoCaptureState(_settings.AutoCaptureEnabled);
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -141,6 +389,7 @@ public partial class MainWindow : Window
         _hwndSource.AddHook(WndProc);
         _windowHandle = _hwndSource.Handle;
         _baseExtendedStyle = NativeWindowMethods.GetWindowLong(_windowHandle, NativeWindowMethods.GWL_EXSTYLE);
+        ApplyCaptureExclusion();
         _hotkeyManager = new GlobalHotkeyManager(_hwndSource);
         RegisterHotkeys();
         SetClickThroughMode(_settings.ClickThroughEnabled);
@@ -158,6 +407,18 @@ public partial class MainWindow : Window
         _dataSyncCts.Dispose();
         _progressStore.Dispose();
         _updateService.Dispose();
+        _questDetectionService.QuestsDetected -= OnQuestsDetected;
+        _questDetectionService.Dispose();
+        _projectDetectionService.Dispose();
+        _hideoutDetectionService.Dispose();
+        UpdateAutoCaptureState(false);
+        _gameCaptureService.FrameCaptured -= OnGameFrameCaptured;
+        _gameCaptureService.Dispose();
+        if (_captureExclusionApplied)
+        {
+            DisplayAffinityHelper.ClearAffinity(_windowHandle, _logger);
+            _captureExclusionApplied = false;
+        }
     }
 
     private void OnHeaderMouseDown(object sender, MouseButtonEventArgs e)
@@ -298,6 +559,15 @@ public partial class MainWindow : Window
                 : await _dataSyncService.RefreshAsync(forceDownload, cancellationToken).ConfigureAwait(false);
 
             _arcData = snapshot;
+            _questDetectionService.UpdateArcData(snapshot);
+            _projectDetectionService.UpdateArcData(snapshot);
+            _hideoutDetectionService.UpdateArcData(snapshot);
+            if (_autoCaptureActive)
+            {
+                _questDetectionService.SetEnabled(_settings.QuestDetectionEnabled);
+                _projectDetectionService.SetEnabled(_settings.ProjectDetectionEnabled);
+                _hideoutDetectionService.SetEnabled(_settings.HideoutDetectionEnabled);
+            }
             _logger.Log("DataSync", $"Arc data synchronized ({snapshot.CommitSha ?? "unknown"}); items={snapshot.Items.Count}, projects={snapshot.Projects.Count}.");
             await InitializeProgressAsync(snapshot, cancellationToken).ConfigureAwait(false);
 
@@ -327,6 +597,8 @@ public partial class MainWindow : Window
         try
         {
             _userProgress = await _progressStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+            _projectDetectionService.UpdateUserProgress(_userProgress);
+            _hideoutDetectionService.UpdateUserProgress(_userProgress);
             _progressReport = _progressCalculator.Calculate(_userProgress, snapshot);
             _logger.Log("Progress", $"Loaded {_progressReport.ActiveQuests.Count} active quests; {_progressReport.NeededItems.Count} item types missing.");
         }
@@ -558,6 +830,7 @@ public partial class MainWindow : Window
     {
         var previousClickThroughState = _settings.ClickThroughEnabled;
         var previousLanguage = _settings.Language;
+        var previousAutoCaptureState = _settings.AutoCaptureEnabled;
 
         _settings.ToggleHotkey = updated.ToggleHotkey;
         _settings.ExitHotkey = updated.ExitHotkey;
@@ -567,6 +840,10 @@ public partial class MainWindow : Window
         _settings.OverlayOpacity = updated.OverlayOpacity;
         _settings.ClickThroughOverlayOpacity = updated.ClickThroughOverlayOpacity;
         _settings.ClickThroughEnabled = updated.ClickThroughEnabled;
+        _settings.AutoCaptureEnabled = updated.AutoCaptureEnabled;
+        _settings.QuestDetectionEnabled = updated.QuestDetectionEnabled;
+        _settings.ProjectDetectionEnabled = updated.ProjectDetectionEnabled;
+        _settings.HideoutDetectionEnabled = updated.HideoutDetectionEnabled;
         _settings.Language = updated.Language;
 
         RegisterHotkeys();
@@ -582,6 +859,17 @@ public partial class MainWindow : Window
 
         ApplyTopmostSetting();
         UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
+        if (previousAutoCaptureState != _settings.AutoCaptureEnabled)
+        {
+            UpdateAutoCaptureState(_settings.AutoCaptureEnabled);
+        }
+        else if (_settings.AutoCaptureEnabled)
+        {
+            // If auto capture was already on, but detection settings changed, update them
+            _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
+            _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
+            _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
+        }
 
         _settingsStore.Save(_settings);
 
@@ -635,6 +923,76 @@ public partial class MainWindow : Window
             ? LocalizationService.Instance["Menu_ClickThroughOn"] 
             : LocalizationService.Instance["Menu_ClickThroughOff"];
         _suppressMenuToggleEvents = false;
+    }
+
+    private void UpdateAutoCaptureState(bool enable)
+    {
+        if (enable)
+        {
+            if (_autoCaptureActive)
+            {
+                _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
+                _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
+                _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
+                return;
+            }
+
+            try
+            {
+                _gameCaptureService.Start();
+                _autoCaptureActive = true;
+                _logger.Log("GameCapture", "Auto capture enabled.");
+                _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
+                _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
+                _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
+            }
+            catch (Exception ex)
+            {
+                _logger.Log("GameCapture", $"Failed to start auto capture: {ex.Message}");
+                MessageBox.Show(this,
+                    LocalizationService.Instance["Settings_AutoCaptureStartFailed"],
+                    LocalizationService.Instance["App_Title"],
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                _settings.AutoCaptureEnabled = false;
+                _questDetectionService.SetEnabled(false);
+                _projectDetectionService.SetEnabled(false);
+                _hideoutDetectionService.SetEnabled(false);
+            }
+        }
+        else
+        {
+            if (!_autoCaptureActive)
+            {
+                _questDetectionService.SetEnabled(false);
+                _projectDetectionService.SetEnabled(false);
+                _hideoutDetectionService.SetEnabled(false);
+                return;
+            }
+
+            try
+            {
+                _gameCaptureService.Stop();
+            }
+            finally
+            {
+                _autoCaptureActive = false;
+                _logger.Log("GameCapture", "Auto capture disabled.");
+                _questDetectionService.SetEnabled(false);
+                _projectDetectionService.SetEnabled(false);
+                _hideoutDetectionService.SetEnabled(false);
+            }
+        }
+    }
+
+    private void ApplyCaptureExclusion()
+    {
+        if (_windowHandle == IntPtr.Zero || _captureExclusionApplied)
+        {
+            return;
+        }
+
+        _captureExclusionApplied = DisplayAffinityHelper.TryExcludeFromCapture(_windowHandle, _logger);
     }
 
     private MenuItem? GetClickThroughMenuItem()

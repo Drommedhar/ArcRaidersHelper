@@ -28,30 +28,11 @@
                             <StackPanel>
                                 <DockPanel>
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
-                                    <Border DockPanel.Dock="Right"
-                                            Background="#33FFFFFF"
-                                            CornerRadius="8"
-                                            Padding="6,2"
-                                            Visibility="{Binding Tracking, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Projects_Tracked]}" Foreground="#F0FFFFFF" FontSize="12" />
-                                    </Border>
                                 </DockPanel>
-                                <TextBlock Foreground="#CCFFFFFF" Margin="0,4,0,4">
-                                    <Run Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Projects_Phase], Mode=OneWay, Converter={x:Null}}" />
-                                    <!-- Note: Projects_Phase is 'Phase {0}', but here we construct it manually. 
-                                         Ideally we should use StringFormat or a converter, but for now let's just use the word 'Phase' if we had it.
-                                         Actually, Projects_Phase is 'Phase {0}'. If we bind to it, we get 'Phase {0}'.
-                                         We need a key for just 'Phase'. But let's assume we can just use the format string and replace {0} with empty? No.
-                                         Let's use a Run with StringFormat? No, Run doesn't support StringFormat binding easily.
-                                         Let's just use a MultiBinding or change the ViewModel.
-                                         For now, I will assume 'Projects_Phase' is 'Phase {0}' and I will use a TextBlock with StringFormat instead of Runs.
-                                    -->
-                                </TextBlock>
-                                <!-- Replacing the Run block with a TextBlock using StringFormat -->
                                 <TextBlock Foreground="#CCFFFFFF" Margin="0,4,0,4">
                                      <TextBlock.Text>
                                         <MultiBinding StringFormat="{}{0} {1} / {2}">
-                                            <Binding Source="{x:Static infra:LocalizationService.Instance}" Path="[Projects_PhasePrefix]"/> <!-- I need to add this key or reuse Projects_Phase -->
+                                            <Binding Source="{x:Static infra:LocalizationService.Instance}" Path="[Projects_PhasePrefix]"/>
                                             <Binding Path="PhasesCompleted"/>
                                             <Binding Path="TotalPhases"/>
                                         </MultiBinding>

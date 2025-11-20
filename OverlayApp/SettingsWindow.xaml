@@ -79,6 +79,32 @@
                     </StackPanel>
                 </GroupBox>
 
+                <GroupBox Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_AutoDetection]}">
+                    <StackPanel Margin="10,6">
+                        <CheckBox x:Name="AutoCaptureCheckBox"
+                                  Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_AutoCapture]}"
+                                  IsChecked="{Binding AutoCaptureEnabled}"
+                                  Checked="OnAutoCaptureChecked" />
+                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_AutoCaptureHint]}"
+                                   TextWrapping="Wrap"
+                                   Margin="24,0,0,0"
+                                   Foreground="#AAFFFFFF" />
+
+                        <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_QuestDetection]}"
+                                  IsChecked="{Binding QuestDetectionEnabled}"
+                                  IsEnabled="{Binding AutoCaptureEnabled}"
+                                  Margin="24,-4,0,4"/>
+                        <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_ProjectDetection]}"
+                                  IsChecked="{Binding ProjectDetectionEnabled}"
+                                  IsEnabled="{Binding AutoCaptureEnabled}"
+                                  Margin="24,0,0,4"/>
+                        <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_HideoutDetection]}"
+                                  IsChecked="{Binding HideoutDetectionEnabled}"
+                                  IsEnabled="{Binding AutoCaptureEnabled}"
+                                  Margin="24,0,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
                 <GroupBox Header="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_Hotkeys]}">
                     <StackPanel Margin="10,6">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">

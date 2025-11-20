@@ -60,13 +60,26 @@ internal sealed partial class HideoutViewModel : NavigationPaneViewModel
 
                 userModules.TryGetValue(moduleId, out var userModule);
 
+                int maxLevel = definition.MaxLevel;
+                if (maxLevel == 0)
+                {
+                    if (definition.Levels != null && definition.Levels.Count > 0)
+                    {
+                        maxLevel = definition.Levels.Max(l => l.Level);
+                    }
+                    else
+                    {
+                        maxLevel = 1;
+                    }
+                }
+
                 var display = new HideoutModuleDisplayModel(progress, snapshot.Items, _progressStore, _logger)
                 {
                     ModuleId = moduleId,
                     Name = LocalizationHelper.ResolveName(definition.Name) ?? moduleId,
                     ImageFilename = ModuleImageMap.TryGetValue(moduleId, out var img) ? img : $"{moduleId}.png",
                     CurrentLevel = userModule?.CurrentLevel ?? 0,
-                    MaxLevel = definition.MaxLevel,
+                    MaxLevel = maxLevel,
                     Tracking = userModule?.Tracking ?? false,
                     Definition = definition
                 };

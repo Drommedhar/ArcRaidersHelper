@@ -6,6 +6,8 @@ namespace OverlayApp;
 
 public partial class SettingsWindow : Window
 {
+    private bool _suppressAutoCaptureWarning = true;
+
     public SettingsWindow(UserSettings draft)
     {
         InitializeComponent();
@@ -19,6 +21,7 @@ public partial class SettingsWindow : Window
 
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
+        _suppressAutoCaptureWarning = false;
     }
 
     private void OnApply(object sender, RoutedEventArgs e)
@@ -38,5 +41,19 @@ public partial class SettingsWindow : Window
     {
         DialogResult = false;
         Close();
+    }
+
+    private void OnAutoCaptureChecked(object sender, RoutedEventArgs e)
+    {
+        if (_suppressAutoCaptureWarning)
+        {
+            return;
+        }
+
+        MessageBox.Show(this,
+            LocalizationService.Instance["Settings_AutoCaptureWarning"],
+            LocalizationService.Instance["Settings_AutoCaptureWarningTitle"],
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
     }
 }

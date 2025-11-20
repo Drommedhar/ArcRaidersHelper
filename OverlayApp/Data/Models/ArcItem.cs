@@ -22,7 +22,7 @@ internal sealed class ArcItem : IArcEntity
     public string? Rarity { get; set; }
 
     [JsonPropertyName("value")]
-    public int? Value { get; set; }
+    public double? Value { get; set; }
 
     [JsonPropertyName("recyclesInto")]
     public Dictionary<string, int>? RecyclesInto { get; set; }
