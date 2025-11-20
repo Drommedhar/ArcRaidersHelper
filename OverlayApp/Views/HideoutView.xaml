@@ -51,14 +51,6 @@
                                     </Image.Style>
                                 </Image>
                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F0FFFFFF" DockPanel.Dock="Left" TextTrimming="CharacterEllipsis" MaxWidth="140" VerticalAlignment="Center"/>
-                                <Border DockPanel.Dock="Right"
-                                        Background="#33FFFFFF"
-                                        CornerRadius="8"
-                                        Padding="6,2"
-                                        Visibility="{Binding Tracking, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        HorizontalAlignment="Right">
-                                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Hideout_Tracked]}" Foreground="#F0FFFFFF" FontSize="12" />
-                                </Border>
                             </DockPanel>
                             
                             <Grid Margin="0,8,0,8">

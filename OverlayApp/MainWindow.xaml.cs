@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private readonly GameCaptureService _gameCaptureService;
     private readonly QuestDetectionService _questDetectionService;
     private readonly ProjectDetectionService _projectDetectionService;
+    private readonly HideoutDetectionService _hideoutDetectionService;
     private readonly SemaphoreSlim _questDetectionGate = new(1, 1);
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
@@ -88,6 +89,7 @@ public partial class MainWindow : Window
         _questDetectionService = new QuestDetectionService(_gameCaptureService, _logger);
         _questDetectionService.QuestsDetected += OnQuestsDetected;
         _projectDetectionService = new ProjectDetectionService(_gameCaptureService, _progressStore, _logger);
+        _hideoutDetectionService = new HideoutDetectionService(_gameCaptureService, _progressStore, _logger);
         DataContext = _viewModel;
     }
 
@@ -111,6 +113,7 @@ public partial class MainWindow : Window
                 _progressReport = report;
                 _viewModel.UpdateData(_arcData, _userProgress, _progressReport);
                 _projectDetectionService.UpdateUserProgress(_userProgress);
+                _hideoutDetectionService.UpdateUserProgress(_userProgress);
                 _logger.Log("Progress", "Progress updated from file change.");
             });
         }
@@ -407,6 +410,7 @@ public partial class MainWindow : Window
         _questDetectionService.QuestsDetected -= OnQuestsDetected;
         _questDetectionService.Dispose();
         _projectDetectionService.Dispose();
+        _hideoutDetectionService.Dispose();
         UpdateAutoCaptureState(false);
         _gameCaptureService.FrameCaptured -= OnGameFrameCaptured;
         _gameCaptureService.Dispose();
@@ -557,10 +561,12 @@ public partial class MainWindow : Window
             _arcData = snapshot;
             _questDetectionService.UpdateArcData(snapshot);
             _projectDetectionService.UpdateArcData(snapshot);
+            _hideoutDetectionService.UpdateArcData(snapshot);
             if (_autoCaptureActive)
             {
                 _questDetectionService.SetEnabled(_settings.QuestDetectionEnabled);
                 _projectDetectionService.SetEnabled(_settings.ProjectDetectionEnabled);
+                _hideoutDetectionService.SetEnabled(_settings.HideoutDetectionEnabled);
             }
             _logger.Log("DataSync", $"Arc data synchronized ({snapshot.CommitSha ?? "unknown"}); items={snapshot.Items.Count}, projects={snapshot.Projects.Count}.");
             await InitializeProgressAsync(snapshot, cancellationToken).ConfigureAwait(false);
@@ -592,6 +598,7 @@ public partial class MainWindow : Window
         {
             _userProgress = await _progressStore.LoadAsync(cancellationToken).ConfigureAwait(false);
             _projectDetectionService.UpdateUserProgress(_userProgress);
+            _hideoutDetectionService.UpdateUserProgress(_userProgress);
             _progressReport = _progressCalculator.Calculate(_userProgress, snapshot);
             _logger.Log("Progress", $"Loaded {_progressReport.ActiveQuests.Count} active quests; {_progressReport.NeededItems.Count} item types missing.");
         }
@@ -861,6 +868,7 @@ public partial class MainWindow : Window
             // If auto capture was already on, but detection settings changed, update them
             _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
             _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
+            _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
         }
 
         _settingsStore.Save(_settings);
@@ -925,6 +933,7 @@ public partial class MainWindow : Window
             {
                 _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
                 _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
+                _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
                 return;
             }
 
@@ -935,6 +944,7 @@ public partial class MainWindow : Window
                 _logger.Log("GameCapture", "Auto capture enabled.");
                 _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
                 _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
+                _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
             }
             catch (Exception ex)
             {
@@ -947,6 +957,7 @@ public partial class MainWindow : Window
                 _settings.AutoCaptureEnabled = false;
                 _questDetectionService.SetEnabled(false);
                 _projectDetectionService.SetEnabled(false);
+                _hideoutDetectionService.SetEnabled(false);
             }
         }
         else
@@ -955,6 +966,7 @@ public partial class MainWindow : Window
             {
                 _questDetectionService.SetEnabled(false);
                 _projectDetectionService.SetEnabled(false);
+                _hideoutDetectionService.SetEnabled(false);
                 return;
             }
 
@@ -968,6 +980,7 @@ public partial class MainWindow : Window
                 _logger.Log("GameCapture", "Auto capture disabled.");
                 _questDetectionService.SetEnabled(false);
                 _projectDetectionService.SetEnabled(false);
+                _hideoutDetectionService.SetEnabled(false);
             }
         }
     }
