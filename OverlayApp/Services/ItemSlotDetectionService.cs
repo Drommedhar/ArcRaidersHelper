@@ -20,11 +20,9 @@ internal class ItemSlotDetectionService : IDisposable
     private readonly GameCaptureService _captureService;
     private readonly ILogger _logger;
     private readonly List<(Mat Template, Mat Mask, Mat SmallTemplate, Mat SmallMask)> _templates = new();
-    private readonly List<(string Name, Mat Template)> _itemTemplates = new();
+    private readonly List<(string Name, Mat Template, Mat SmallTemplate)> _itemTemplates = new();
     private static readonly string ResourceItemsPath = Path.Combine(AppContext.BaseDirectory ?? string.Empty, "Resources", "Items");
-    private const double ConfidentMatchThreshold = 0.7;
-    private static readonly TimeSpan LowConfidenceDumpDelay = TimeSpan.FromSeconds(2);
-    private readonly Dictionary<string, LowConfidenceState> _lowConfidenceSlots = new();
+    private const double ConfidentMatchThreshold = 0.6;
     private bool _enabled;
     private bool _disposed;
     private readonly SemaphoreSlim _processingGate = new(1, 1);
@@ -46,7 +44,7 @@ internal class ItemSlotDetectionService : IDisposable
     // Event now passes a list of (Rect, IsOccupied, ItemName, Confidence, Candidates) tuples
     public event EventHandler<List<(System.Windows.Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)>>? SlotsDetected;
 
-    private class TrackedSlot
+    private class TrackedSlot : IDisposable
     {
         public Rect Rect { get; set; }
         public int Stability { get; set; }
@@ -56,12 +54,13 @@ internal class ItemSlotDetectionService : IDisposable
         public string? ItemName { get; set; }
         public double Confidence { get; set; }
         public List<(string Name, double Score)> Candidates { get; set; } = new();
-    }
+        public Mat? LastImage { get; set; }
 
-    private sealed class LowConfidenceState
-    {
-        public DateTime FirstSeen { get; set; }
-        public bool Dumped { get; set; }
+        public void Dispose()
+        {
+            LastImage?.Dispose();
+            LastImage = null;
+        }
     }
 
     public ItemSlotDetectionService(GameCaptureService captureService, ILogger logger)
@@ -101,6 +100,7 @@ internal class ItemSlotDetectionService : IDisposable
         foreach (var t in _itemTemplates)
         {
             t.Template.Dispose();
+            t.SmallTemplate.Dispose();
         }
         _itemTemplates.Clear();
 
@@ -137,7 +137,10 @@ internal class ItemSlotDetectionService : IDisposable
                         continue;
                     }
 
-                    _itemTemplates.Add((name, mat));
+                    var small = new Mat();
+                    Cv2.Resize(mat, small, new OpenCvSharp.Size(0, 0), 0.5, 0.5, InterpolationFlags.Linear);
+
+                    _itemTemplates.Add((name, mat, small));
                     loadedCount++;
                 }
                 catch (Exception ex)
@@ -248,7 +251,7 @@ internal class ItemSlotDetectionService : IDisposable
 
         try
         {
-            var rawDetections = await Task.Run(() => ProcessFrame(e.Frame));
+            var rawDetections = await Task.Run(() => ProcessFrame(e.Frame, _trackedSlots));
             // _logger.Log("ItemSlotDetection", $"ProcessFrame returned {rawDetections.Count} candidates.");
 
             var stableSlots = UpdateTrackedSlots(rawDetections, e.Frame.ScreenLeft, e.Frame.ScreenTop);
@@ -267,7 +270,7 @@ internal class ItemSlotDetectionService : IDisposable
         }
     }
 
-    private List<(System.Windows.Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> UpdateTrackedSlots(List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> currentDetections, int screenLeft, int screenTop)
+    private List<(System.Windows.Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> UpdateTrackedSlots(List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates, Mat? SlotImage)> currentDetections, int screenLeft, int screenTop)
     {
         var now = DateTime.UtcNow;
 
@@ -306,12 +309,20 @@ internal class ItemSlotDetectionService : IDisposable
                     tracked.ItemName = match.ItemName;
                     tracked.Confidence = match.Confidence;
                     tracked.Candidates = match.Candidates;
+                    
+                    if (match.SlotImage != null)
+                    {
+                        tracked.LastImage?.Dispose();
+                        tracked.LastImage = match.SlotImage;
+                    }
                 }
                 else
                 {
                     tracked.ItemName = null;
                     tracked.Confidence = 0;
                     tracked.Candidates.Clear();
+                    tracked.LastImage?.Dispose();
+                    tracked.LastImage = null;
                 }
 
                 tracked.Stability = Math.Min(tracked.Stability + 1, MaxStability);
@@ -323,6 +334,14 @@ internal class ItemSlotDetectionService : IDisposable
                 }
                 
                 // Remove from current detections so it's not matched again or added as new
+                // But first dispose the image if we didn't use it (shouldn't happen if we matched, but good practice)
+                // Actually we moved ownership to tracked.LastImage if match.SlotImage != null.
+                // If we didn't use it (e.g. not occupied?), we should dispose it.
+                if (!match.IsOccupied && match.SlotImage != null)
+                {
+                    match.SlotImage.Dispose();
+                }
+
                 currentDetections.RemoveAt(bestMatchIndex);
             }
         }
@@ -339,17 +358,26 @@ internal class ItemSlotDetectionService : IDisposable
                 Candidates = detection.Candidates,
                 Stability = 1,
                 LastSeen = now,
-                IsVisible = false // Wait for stability threshold
+                IsVisible = false, // Wait for stability threshold
+                LastImage = detection.SlotImage
             });
         }
 
         // Remove lost slots
-        _trackedSlots.RemoveAll(s => (now - s.LastSeen) > RemovalTimeout);
+        for (int i = _trackedSlots.Count - 1; i >= 0; i--)
+        {
+            var s = _trackedSlots[i];
+            if ((now - s.LastSeen) > RemovalTimeout)
+            {
+                s.Dispose();
+                _trackedSlots.RemoveAt(i);
+            }
+        }
 
         // Return stable slots
         return _trackedSlots
             .Where(s => s.IsVisible)
-            .Select(s => (new System.Windows.Rect(s.Rect.X + screenLeft, s.Rect.Y + screenTop, s.Rect.Width, s.Rect.Height), s.IsOccupied, s.ItemName, s.Confidence, s.Candidates))
+            .Select(s => (new System.Windows.Rect(s.Rect.X + screenLeft, s.Rect.Y + screenTop, s.Rect.Width, s.Rect.Height), s.IsOccupied, s.Confidence >= ConfidentMatchThreshold ? s.ItemName : null, s.Confidence, s.Candidates))
             .ToList();
     }
 
@@ -360,10 +388,10 @@ internal class ItemSlotDetectionService : IDisposable
         return Math.Sqrt(Math.Pow(c1.X - c2.X, 2) + Math.Pow(c1.Y - c2.Y, 2));
     }
 
-    private List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> ProcessFrame(GameCaptureFrame frame)
+    private List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates, Mat? SlotImage)> ProcessFrame(GameCaptureFrame frame, List<TrackedSlot> trackedSlots)
     {
         // Use ConcurrentBag for thread-safe parallel processing
-        var allCandidates = new ConcurrentBag<(Rect Rect, double Score, bool IsOccupied, List<(string Name, double Score)> Candidates)>();
+        var allCandidates = new ConcurrentBag<(Rect Rect, double Score, bool IsOccupied, List<(string Name, double Score)> Candidates, Mat? SlotImage)>();
 
         try
         {
@@ -407,8 +435,6 @@ internal class ItemSlotDetectionService : IDisposable
                     using var result = new Mat();
                     
                     // Use Color Texture Matching (CCoeffNormed) WITH Blur.
-                    // We re-enabled blur because raw pixel matching was failing (too sensitive).
-                    // The geometric mask should protect us from item color bleeding if the border is thick enough.
                     Cv2.MatchTemplate(smallFrame, smallTemplate, result, TemplateMatchModes.CCoeffNormed, smallMask);
 
                     // Threshold: Lowered to ensure we catch all items.
@@ -420,7 +446,6 @@ internal class ItemSlotDetectionService : IDisposable
                     {
                         if (matchCount >= MaxMatchesPerTemplate)
                         {
-                            // _logger.Log("ItemSlotDetection", $"Hit max matches ({MaxMatchesPerTemplate}) for template. Breaking loop.");
                             break;
                         }
 
@@ -437,19 +462,89 @@ internal class ItemSlotDetectionService : IDisposable
                             // Only track occupied slots
                             if (isOccupied)
                             {
-                                var candidates = IdentifyItem(matBgr, rect);
-                                allCandidates.Add((rect, maxVal, isOccupied, candidates));
+                                // Optimization: Check if we already know this slot and the image hasn't changed
+                                bool cacheHit = false;
+                                List<(string Name, double Score)> candidates = new();
+                                Mat? slotImage = null;
+
+                                // Extract ROI for identification/caching
+                                // Ensure rect is within bounds
+                                var roiRect = new Rect(rect.X, rect.Y, rect.Width, rect.Height);
+                                if (roiRect.X < 0) roiRect.X = 0;
+                                if (roiRect.Y < 0) roiRect.Y = 0;
+                                if (roiRect.Right > matBgr.Width) roiRect.Width = matBgr.Width - roiRect.X;
+                                if (roiRect.Bottom > matBgr.Height) roiRect.Height = matBgr.Height - roiRect.Y;
+
+                                if (roiRect.Width > 0 && roiRect.Height > 0)
+                                {
+                                    // We must clone because matBgr will be disposed
+                                    slotImage = new Mat(matBgr, roiRect).Clone();
+
+                                    // Find matching tracked slot
+                                    // Note: trackedSlots is accessed from multiple threads here, but it's read-only during this phase
+                                    // We need to be careful not to modify it.
+                                    TrackedSlot? bestMatch = null;
+                                    double minDist = double.MaxValue;
+
+                                    foreach (var t in trackedSlots)
+                                    {
+                                        var d = Distance(t.Rect, rect);
+                                        if (d < 20 && d < minDist)
+                                        {
+                                            minDist = d;
+                                            bestMatch = t;
+                                        }
+                                    }
+
+                                    if (bestMatch != null && bestMatch.IsOccupied && bestMatch.LastImage != null && !bestMatch.LastImage.IsDisposed)
+                                    {
+                                        // Compare images
+                                        using var cmp = new Mat();
+                                        if (slotImage.Size() != bestMatch.LastImage.Size())
+                                        {
+                                            Cv2.Resize(bestMatch.LastImage, cmp, slotImage.Size());
+                                        }
+                                        else
+                                        {
+                                            bestMatch.LastImage.CopyTo(cmp);
+                                        }
+
+                                        using var diff = new Mat();
+                                        Cv2.Absdiff(slotImage, cmp, diff);
+                                        var mean = Cv2.Mean(diff);
+                                        
+                                        // Threshold for "same image". 
+                                        // 10 is a small average pixel difference.
+                                        if (mean.Val0 < 10 && mean.Val1 < 10 && mean.Val2 < 10)
+                                        {
+                                            candidates = bestMatch.Candidates.ToList(); // Clone list
+                                            cacheHit = true;
+                                            
+                                            // If cache hit, we don't strictly need to return the new image unless we want to update the reference.
+                                            // Updating reference handles slow lighting changes.
+                                            // Let's return it.
+                                        }
+                                    }
+                                }
+
+                                if (!cacheHit)
+                                {
+                                    candidates = IdentifyItem(matBgr, rect);
+                                }
+                                else
+                                {
+                                    // If cache hit, we might want to skip IdentifyItem but we still need to return the result
+                                }
+
+                                allCandidates.Add((rect, maxVal, isOccupied, candidates, slotImage));
                             }
 
                             // Mask out the detected area in the result to find the next one
-                            // We mask a region centered on the match to avoid killing adjacent items.
-                            // Using 60% of the template size is sufficient to suppress the self-match.
                             int maskW = (int)(smallTemplate.Width * 0.6);
                             int maskH = (int)(smallTemplate.Height * 0.6);
                             int maskX = maxLoc.X - maskW / 2;
                             int maskY = maxLoc.Y - maskH / 2;
                             
-                            // Clip to result bounds
                             maskX = Math.Max(0, maskX);
                             maskY = Math.Max(0, maskY);
                             maskW = Math.Min(maskW, result.Width - maskX);
@@ -479,8 +574,7 @@ internal class ItemSlotDetectionService : IDisposable
         }
 
         // Apply NMS (Non-Maximum Suppression) on all candidates
-        // Sort by score descending so the best matches are kept
-        var detectedSlots = new List<(Rect, bool, string?, double, List<(string Name, double Score)>)>();
+        var detectedSlots = new List<(Rect, bool, string?, double, List<(string Name, double Score)>, Mat?)>();
         var sortedCandidates = allCandidates.OrderByDescending(c => c.Score).ToList();
 
         foreach (var candidate in sortedCandidates)
@@ -498,7 +592,12 @@ internal class ItemSlotDetectionService : IDisposable
             if (!overlap)
             {
                 var best = candidate.Candidates.FirstOrDefault();
-                detectedSlots.Add((candidate.Rect, candidate.IsOccupied, best.Name, best.Score, candidate.Candidates));
+                detectedSlots.Add((candidate.Rect, candidate.IsOccupied, best.Name, best.Score, candidate.Candidates, candidate.SlotImage));
+            }
+            else
+            {
+                // Dispose unused image
+                candidate.SlotImage?.Dispose();
             }
         }
 
@@ -547,8 +646,8 @@ internal class ItemSlotDetectionService : IDisposable
 
     private List<(string Name, double Score)> IdentifyItem(Mat frame, Rect slotRect)
     {
-        var candidates = new List<(string Name, double Score)>();
-        if (_itemTemplates.Count == 0) return candidates;
+        var candidates = new ConcurrentBag<(string Name, double Score)>();
+        if (_itemTemplates.Count == 0) return candidates.ToList();
 
         // Extract ROI from the frame (which is now Color BGR)
         // Ensure rect is within bounds
@@ -558,14 +657,39 @@ internal class ItemSlotDetectionService : IDisposable
         if (roiRect.Right > frame.Width) roiRect.Width = frame.Width - roiRect.X;
         if (roiRect.Bottom > frame.Height) roiRect.Height = frame.Height - roiRect.Y;
 
-        if (roiRect.Width <= 0 || roiRect.Height <= 0) return candidates;
+        if (roiRect.Width <= 0 || roiRect.Height <= 0) return candidates.ToList();
 
         using var roi = new Mat(frame, roiRect);
+        using var smallRoi = new Mat();
+        Cv2.Resize(roi, smallRoi, new OpenCvSharp.Size(0, 0), 0.5, 0.5, InterpolationFlags.Linear);
 
-        // We can parallelize this if needed, but let's try sequential first for the few occupied slots
-        foreach (var (name, template) in _itemTemplates)
+        // First pass: Small templates
+        var potentialCandidates = new ConcurrentBag<(string Name, Mat Template, double Score)>();
+
+        Parallel.ForEach(_itemTemplates, item =>
         {
-            if (template.Width > roi.Width || template.Height > roi.Height) continue;
+            var (name, template, smallTemplate) = item;
+            if (smallTemplate.Width > smallRoi.Width || smallTemplate.Height > smallRoi.Height) return;
+
+            using var result = new Mat();
+            Cv2.MatchTemplate(smallRoi, smallTemplate, result, TemplateMatchModes.CCoeffNormed);
+            Cv2.MinMaxLoc(result, out _, out double maxVal, out _, out _);
+
+            // Use a slightly lower threshold for coarse search
+            if (maxVal > ItemIdentificationThreshold * 0.9)
+            {
+                potentialCandidates.Add((name, template, maxVal));
+            }
+        });
+
+        // Take top 10 from coarse search
+        var topPotential = potentialCandidates.OrderByDescending(x => x.Score).Take(10).ToList();
+
+        // Second pass: Full templates on top candidates
+        Parallel.ForEach(topPotential, item =>
+        {
+            var (name, template, _) = item;
+            if (template.Width > roi.Width || template.Height > roi.Height) return;
 
             using var result = new Mat();
             Cv2.MatchTemplate(roi, template, result, TemplateMatchModes.CCoeffNormed);
@@ -575,82 +699,25 @@ internal class ItemSlotDetectionService : IDisposable
             {
                 candidates.Add((name, maxVal));
             }
-        }
+        });
 
         var sorted = candidates.OrderByDescending(x => x.Score).Take(5).ToList();
 
         if (sorted.Count == 0)
         {
-            ClearLowConfidenceState(slotRect);
             return sorted;
         }
 
         var best = sorted[0];
-        var slotKey = GetSlotKey(slotRect);
 
         // Only keep multiple candidates when we are below the confidence threshold
         if (best.Score >= ConfidentMatchThreshold)
         {
             sorted = new List<(string Name, double Score)> { best };
-            _lowConfidenceSlots.Remove(slotKey);
             return sorted;
         }
 
-        // Track low-confidence slots and only dump once they have been unstable for a while
-        var now = DateTime.UtcNow;
-        if (!_lowConfidenceSlots.TryGetValue(slotKey, out var state))
-        {
-            state = new LowConfidenceState { FirstSeen = now };
-            _lowConfidenceSlots[slotKey] = state;
-        }
-
-        if (!state.Dumped && now - state.FirstSeen >= LowConfidenceDumpDelay)
-        {
-            DumpLowConfidenceRoi(best, roi);
-            state.Dumped = true;
-            state.FirstSeen = now; // Prevent immediate re-dumps if it stays low
-        }
-
         return sorted;
-    }
-
-    private void DumpLowConfidenceRoi((string Name, double Score) best, Mat roi)
-    {
-        try
-        {
-            var dumpDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "debug", "detected_items");
-            if (!Directory.Exists(dumpDir))
-            {
-                Directory.CreateDirectory(dumpDir);
-            }
-
-            // Sanitize filename
-            var safeName = string.Join("_", best.Name.Split(Path.GetInvalidFileNameChars()));
-            var filename = $"{safeName}.png";
-            var path = Path.Combine(dumpDir, filename);
-            
-            // Only save if it doesn't exist to avoid duplicates
-            if (!File.Exists(path))
-            {
-                roi.SaveImage(path);
-                _logger.Log("ItemSlotDetection", $"Dumped low-confidence item image ({best.Score:P0}): {filename}");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Log("ItemSlotDetection", $"Failed to dump item image: {ex.Message}");
-        }
-    }
-
-    private void ClearLowConfidenceState(Rect slotRect)
-    {
-        var slotKey = GetSlotKey(slotRect);
-        _lowConfidenceSlots.Remove(slotKey);
-    }
-
-    private static string GetSlotKey(Rect rect)
-    {
-        return $"{rect.X}_{rect.Y}_{rect.Width}_{rect.Height}";
     }
 
     public void UpdateArcData(ArcDataSnapshot data)
@@ -670,6 +737,20 @@ internal class ItemSlotDetectionService : IDisposable
             t.SmallMask.Dispose();
         }
         _templates.Clear();
+
+        foreach (var t in _itemTemplates)
+        {
+            t.Template.Dispose();
+            t.SmallTemplate.Dispose();
+        }
+        _itemTemplates.Clear();
+        
+        foreach (var t in _trackedSlots)
+        {
+            t.Dispose();
+        }
+        _trackedSlots.Clear();
+        
         _processingGate.Dispose();
     }
 }

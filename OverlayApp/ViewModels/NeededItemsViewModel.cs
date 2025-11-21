@@ -26,6 +26,19 @@ internal sealed partial class NeededItemsViewModel : NavigationPaneViewModel
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
     {
+        var expandedGroups = Groups.Where(g => g.IsExpanded).Select(g => g.Category).ToHashSet();
+        var expandedSources = new HashSet<string>();
+        foreach (var group in Groups)
+        {
+            foreach (var source in group.Sources)
+            {
+                if (source.IsExpanded)
+                {
+                    expandedSources.Add($"{group.Category}|{source.Name}|{source.Subtitle}");
+                }
+            }
+        }
+
         Groups.Clear();
         if (report?.GroupedRequirements is null)
         {
@@ -35,13 +48,18 @@ internal sealed partial class NeededItemsViewModel : NavigationPaneViewModel
 
         foreach (var group in report.GroupedRequirements)
         {
-            var groupModel = new RequirementGroupDisplayModel { Category = group.Category };
+            var groupModel = new RequirementGroupDisplayModel 
+            { 
+                Category = group.Category,
+                IsExpanded = expandedGroups.Contains(group.Category)
+            };
             foreach (var source in group.Sources)
             {
                 var sourceModel = new RequirementSourceDisplayModel 
                 { 
                     Name = source.Name,
-                    Subtitle = source.Subtitle
+                    Subtitle = source.Subtitle,
+                    IsExpanded = expandedSources.Contains($"{group.Category}|{source.Name}|{source.Subtitle}")
                 };
                 
                 foreach (var item in source.Items)

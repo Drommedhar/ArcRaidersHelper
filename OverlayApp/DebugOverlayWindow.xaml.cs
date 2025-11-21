@@ -42,11 +42,9 @@ namespace OverlayApp
                 Canvas.SetTop(rect, clientPoint.Y);
                 DebugCanvas.Children.Add(rect);
 
-                if (slot.IsOccupied)
+                if (slot.IsOccupied && slot.ItemName != null)
                 {
-                    var displayText = slot.ItemName != null 
-                        ? $"{slot.ItemName} ({slot.Confidence:P0})" 
-                        : "Unknown";
+                    var displayText = $"{slot.ItemName} ({slot.Confidence:P0})";
 
                     // Append candidates if available
                     if (slot.Candidates != null && slot.Candidates.Count > 0)
