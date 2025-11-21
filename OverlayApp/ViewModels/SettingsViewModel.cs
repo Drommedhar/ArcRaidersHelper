@@ -24,6 +24,7 @@ public partial class SettingsViewModel : ObservableObject
         QuestDetectionEnabled = _workingCopy.QuestDetectionEnabled;
         ProjectDetectionEnabled = _workingCopy.ProjectDetectionEnabled;
         HideoutDetectionEnabled = _workingCopy.HideoutDetectionEnabled;
+        ItemDetectionEnabled = _workingCopy.ItemDetectionEnabled;
         ToggleHotkeyText = _workingCopy.ToggleHotkey;
         ExitHotkeyText = _workingCopy.ExitHotkey;
         ClickThroughHotkeyText = _workingCopy.ClickThroughHotkey;
@@ -74,6 +75,9 @@ public partial class SettingsViewModel : ObservableObject
     private bool _hideoutDetectionEnabled;
 
     [ObservableProperty]
+    private bool _itemDetectionEnabled;
+
+    [ObservableProperty]
     private double _overlayOpacity = 1.0;
 
     [ObservableProperty]
@@ -104,6 +108,7 @@ public partial class SettingsViewModel : ObservableObject
         updated.QuestDetectionEnabled = QuestDetectionEnabled;
         updated.ProjectDetectionEnabled = ProjectDetectionEnabled;
         updated.HideoutDetectionEnabled = HideoutDetectionEnabled;
+        updated.ItemDetectionEnabled = ItemDetectionEnabled;
         updated.OverlayOpacity = Math.Clamp(OverlayOpacity, 0.2, 1.0);
         updated.ClickThroughOverlayOpacity = Math.Clamp(ClickThroughOverlayOpacity, 0.1, 1.0);
         updated.ToggleHotkey = toggle.ToString();
