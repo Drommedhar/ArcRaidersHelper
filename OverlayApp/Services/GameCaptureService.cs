@@ -39,7 +39,8 @@ internal sealed class GameCaptureService : IDisposable
         string? captureDirectory = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _captureInterval = captureInterval ?? TimeSpan.FromMilliseconds(250);
+        // Capture faster (e.g. 33ms ~ 30 FPS) to improve responsiveness and tracking during scrolling
+        _captureInterval = captureInterval ?? TimeSpan.FromMilliseconds(500);
         _debugDumpInterval = debugDumpInterval ?? TimeSpan.FromSeconds(1);
         _captureDirectory = captureDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -152,7 +153,7 @@ internal sealed class GameCaptureService : IDisposable
                 }
 
                 FrameCaptured?.Invoke(this, new GameFrameCapturedEventArgs(frame));
-                MaybeDumpDebugFrame(frame);
+                //MaybeDumpDebugFrame(frame);
             }
             catch (OperationCanceledException)
             {

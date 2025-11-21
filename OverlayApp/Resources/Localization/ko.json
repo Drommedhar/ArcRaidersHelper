@@ -92,6 +92,7 @@
   "Settings_QuestDetection": "퀘스트 감지",
   "Settings_ProjectDetection": "프로젝트 감지",
   "Settings_HideoutDetection": "은신처 감지",
+  "Settings_ItemDetection": "아이템 감지",
   "Settings_AutoCaptureWarningTitle": "사용자 책임",
   "Settings_AutoCaptureWarning": "자동 캡처는 백그라운드에서 화면 픽셀을 읽습니다. 일부 안티 치트 시스템은 이 동작을 의심스럽게 볼 수 있습니다. ArcRaidersHelper 는 이용 정지나 제재에 대해 책임을 지지 않습니다.",
   "Settings_AutoCaptureStartFailed": "자동 캡처를 시작할 수 없습니다. 자세한 내용은 로그를 확인하세요.",

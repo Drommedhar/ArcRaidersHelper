@@ -1,0 +1,12 @@
+<Window x:Class="OverlayApp.DebugOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DebugOverlayWindow" 
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        WindowState="Normal">
+    <Canvas x:Name="DebugCanvas"/>
+</Window>

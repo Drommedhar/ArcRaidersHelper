@@ -45,6 +45,8 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
     {
+        var expandedQuestIds = _allQuests.Where(q => q.IsExpanded).Select(q => q.QuestId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         _allQuests.Clear();
         Quests.Clear();
         if (snapshot?.Quests is null)
@@ -180,7 +182,8 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 RewardItems = CreateItemQuantityList(definition.RewardItems, snapshot.Items, OnNavigate),
                 Objectives = objectives,
                 Prerequisites = prereqs,
-                Unlocks = unlocks
+                Unlocks = unlocks,
+                IsExpanded = expandedQuestIds.Contains(questId)
             });
         }
 

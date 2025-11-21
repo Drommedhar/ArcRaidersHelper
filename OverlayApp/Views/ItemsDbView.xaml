@@ -124,11 +124,20 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     
-                                    <Image Grid.Column="0" 
-                                           Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}"
-                                           Width="48" Height="48" 
-                                           Margin="0,0,12,0"
-                                           VerticalAlignment="Top" />
+                                    <Grid Grid.Column="0"
+                                          Width="64" Height="64"
+                                          Margin="0,0,12,0"
+                                          VerticalAlignment="Top"
+                                          Background="#22000000"
+                                          UseLayoutRounding="True"
+                                          SnapsToDevicePixels="True">
+                                        <Viewbox Stretch="Uniform" StretchDirection="DownOnly" ClipToBounds="True" UseLayoutRounding="True">
+                                            <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                        </Viewbox>
+                                    </Grid>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Top">
                                         <DockPanel>

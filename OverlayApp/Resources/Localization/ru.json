@@ -89,6 +89,7 @@
   "Settings_QuestDetection": "Обнаружение квестов",
   "Settings_ProjectDetection": "Обнаружение проектов",
   "Settings_HideoutDetection": "Обнаружение убежища",
+  "Settings_ItemDetection": "Обнаружение предметов",
   "Settings_AutoCaptureWarningTitle": "Используйте на свой страх и риск",
   "Settings_AutoCaptureWarning": "Авто-захват считывает пиксели экрана в фоновом режиме. Античит-системы могут посчитать это подозрительным. ArcRaidersHelper не несёт ответственности за баны или санкции.",
   "Settings_AutoCaptureStartFailed": "Не удалось запустить авто-захват. Подробности см. в журнале.",

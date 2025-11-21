@@ -13,7 +13,9 @@ internal static class LoggerFactory
 
     public static string GetLogFilePath()
     {
-        var logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "logs");
+        // DEBUG: Log to workspace for easier access
+        var logDirectory = Path.Combine(AppContext.BaseDirectory, "logs");
+        // var logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "logs");
         Directory.CreateDirectory(logDirectory);
         return Path.Combine(logDirectory, "overlay.log");
     }

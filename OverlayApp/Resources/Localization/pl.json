@@ -89,6 +89,7 @@
   "Settings_QuestDetection": "Wykrywanie zadań",
   "Settings_ProjectDetection": "Wykrywanie projektów",
   "Settings_HideoutDetection": "Wykrywanie kryjówki",
+  "Settings_ItemDetection": "Wykrywanie przedmiotów",
   "Settings_AutoCaptureWarningTitle": "Używaj na własne ryzyko",
   "Settings_AutoCaptureWarning": "Auto-capture odczytuje piksele ekranu w tle. Systemy antycheat mogą uznać to zachowanie za podejrzane. ArcRaidersHelper nie ponosi odpowiedzialności za bany ani kary.",
   "Settings_AutoCaptureStartFailed": "Nie udało się uruchomić auto-capture. Sprawdź logi po szczegóły.",

@@ -55,9 +55,11 @@ public partial class MainWindow : Window
     private readonly QuestDetectionService _questDetectionService;
     private readonly ProjectDetectionService _projectDetectionService;
     private readonly HideoutDetectionService _hideoutDetectionService;
+    private readonly ItemSlotDetectionService _itemSlotDetectionService;
     private readonly SemaphoreSlim _questDetectionGate = new(1, 1);
     private GlobalHotkeyManager? _hotkeyManager;
     private bool _isOverlayVisible = true;
+    private DebugOverlayWindow? _debugOverlayWindow;
     private MenuItem? _clickThroughMenuItem;
     private bool _suppressMenuToggleEvents;
     private IntPtr _windowHandle;
@@ -90,7 +92,30 @@ public partial class MainWindow : Window
         _questDetectionService.QuestsDetected += OnQuestsDetected;
         _projectDetectionService = new ProjectDetectionService(_gameCaptureService, _progressStore, _logger);
         _hideoutDetectionService = new HideoutDetectionService(_gameCaptureService, _progressStore, _logger);
+        _itemSlotDetectionService = new ItemSlotDetectionService(_gameCaptureService, _logger);
+        _itemSlotDetectionService.SlotsDetected += OnSlotsDetected;
         DataContext = _viewModel;
+    }
+
+    private void OnSlotsDetected(object? sender, List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> slots)
+    {
+        _logger.Log("MainWindow", $"Sending {slots.Count} slots to debug overlay.");
+
+        var report = _progressReport;
+        var neededItemNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (report != null)
+        {
+            foreach (var item in report.NeededItems)
+            {
+                if (!string.IsNullOrEmpty(item.ImageFilename))
+                {
+                    var name = Path.GetFileNameWithoutExtension(item.ImageFilename);
+                    neededItemNames.Add(name);
+                }
+            }
+        }
+
+        Dispatcher.Invoke(() => _debugOverlayWindow?.UpdateRectangles(slots, neededItemNames));
     }
 
     private void OnProgressChanged(object? sender, UserProgressState newState)
@@ -125,6 +150,12 @@ public partial class MainWindow : Window
 
     private void OnGameFrameCaptured(object? sender, GameFrameCapturedEventArgs e)
     {
+        // Use InvokeAsync to avoid blocking the capture thread and causing deadlocks on shutdown
+        Dispatcher.InvokeAsync(() => 
+        {
+            _debugOverlayWindow?.UpdatePosition(e.Frame.ScreenLeft, e.Frame.ScreenTop, e.Frame.Width, e.Frame.Height);
+        });
+
         if (_firstCaptureFrameLogged)
         {
             return;
@@ -373,6 +404,10 @@ public partial class MainWindow : Window
             ShowOverlay();
         }
 
+        _debugOverlayWindow = new DebugOverlayWindow();
+        _debugOverlayWindow.Show();
+        _itemSlotDetectionService.SetEnabled(_settings.ItemDetectionEnabled);
+
         _ = CheckForUpdatesAsync();
         UpdateAutoCaptureState(_settings.AutoCaptureEnabled);
     }
@@ -411,6 +446,8 @@ public partial class MainWindow : Window
         _questDetectionService.Dispose();
         _projectDetectionService.Dispose();
         _hideoutDetectionService.Dispose();
+        _itemSlotDetectionService.Dispose();
+        _debugOverlayWindow?.Close();
         UpdateAutoCaptureState(false);
         _gameCaptureService.FrameCaptured -= OnGameFrameCaptured;
         _gameCaptureService.Dispose();
@@ -562,11 +599,13 @@ public partial class MainWindow : Window
             _questDetectionService.UpdateArcData(snapshot);
             _projectDetectionService.UpdateArcData(snapshot);
             _hideoutDetectionService.UpdateArcData(snapshot);
+            _itemSlotDetectionService.UpdateArcData(snapshot);
             if (_autoCaptureActive)
             {
                 _questDetectionService.SetEnabled(_settings.QuestDetectionEnabled);
                 _projectDetectionService.SetEnabled(_settings.ProjectDetectionEnabled);
                 _hideoutDetectionService.SetEnabled(_settings.HideoutDetectionEnabled);
+                _itemSlotDetectionService.SetEnabled(_settings.ItemDetectionEnabled);
             }
             _logger.Log("DataSync", $"Arc data synchronized ({snapshot.CommitSha ?? "unknown"}); items={snapshot.Items.Count}, projects={snapshot.Projects.Count}.");
             await InitializeProgressAsync(snapshot, cancellationToken).ConfigureAwait(false);
@@ -824,6 +863,10 @@ public partial class MainWindow : Window
     private void ApplyTopmostSetting()
     {
         Topmost = _settings.AlwaysOnTop || _settings.ClickThroughEnabled;
+        if (_debugOverlayWindow != null)
+        {
+            _debugOverlayWindow.Topmost = Topmost;
+        }
     }
 
     private void ApplySettingsFromDialog(UserSettings updated)
@@ -844,6 +887,7 @@ public partial class MainWindow : Window
         _settings.QuestDetectionEnabled = updated.QuestDetectionEnabled;
         _settings.ProjectDetectionEnabled = updated.ProjectDetectionEnabled;
         _settings.HideoutDetectionEnabled = updated.HideoutDetectionEnabled;
+        _settings.ItemDetectionEnabled = updated.ItemDetectionEnabled;
         _settings.Language = updated.Language;
 
         RegisterHotkeys();
@@ -869,6 +913,7 @@ public partial class MainWindow : Window
             _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
             _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
             _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
+            _itemSlotDetectionService.SetEnabled(_arcData is not null && _settings.ItemDetectionEnabled);
         }
 
         _settingsStore.Save(_settings);
@@ -934,6 +979,7 @@ public partial class MainWindow : Window
                 _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
                 _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
                 _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
+                _itemSlotDetectionService.SetEnabled(_arcData is not null && _settings.ItemDetectionEnabled);
                 return;
             }
 
@@ -945,6 +991,7 @@ public partial class MainWindow : Window
                 _questDetectionService.SetEnabled(_arcData is not null && _settings.QuestDetectionEnabled);
                 _projectDetectionService.SetEnabled(_arcData is not null && _settings.ProjectDetectionEnabled);
                 _hideoutDetectionService.SetEnabled(_arcData is not null && _settings.HideoutDetectionEnabled);
+                _itemSlotDetectionService.SetEnabled(_arcData is not null && _settings.ItemDetectionEnabled);
             }
             catch (Exception ex)
             {
@@ -958,6 +1005,7 @@ public partial class MainWindow : Window
                 _questDetectionService.SetEnabled(false);
                 _projectDetectionService.SetEnabled(false);
                 _hideoutDetectionService.SetEnabled(false);
+                _itemSlotDetectionService.SetEnabled(false);
             }
         }
         else
@@ -967,6 +1015,7 @@ public partial class MainWindow : Window
                 _questDetectionService.SetEnabled(false);
                 _projectDetectionService.SetEnabled(false);
                 _hideoutDetectionService.SetEnabled(false);
+                _itemSlotDetectionService.SetEnabled(false);
                 return;
             }
 
@@ -981,6 +1030,7 @@ public partial class MainWindow : Window
                 _questDetectionService.SetEnabled(false);
                 _projectDetectionService.SetEnabled(false);
                 _hideoutDetectionService.SetEnabled(false);
+                _itemSlotDetectionService.SetEnabled(false);
             }
         }
     }

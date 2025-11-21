@@ -89,6 +89,7 @@
   "Settings_QuestDetection": "Detección de misiones",
   "Settings_ProjectDetection": "Detección de proyectos",
   "Settings_HideoutDetection": "Detección de escondite",
+  "Settings_ItemDetection": "Detección de objetos",
   "Settings_AutoCaptureWarningTitle": "Usa esta función bajo tu responsabilidad",
   "Settings_AutoCaptureWarning": "La captura automática lee píxeles de la pantalla en segundo plano. Los sistemas anti-trampas podrían marcar este comportamiento. ArcRaidersHelper no se hace responsable de suspensiones o sanciones.",
   "Settings_AutoCaptureStartFailed": "No se pudo iniciar la captura automática. Consulta los registros para más detalles.",
