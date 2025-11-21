@@ -97,7 +97,7 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
     }
 
-    private void OnSlotsDetected(object? sender, List<(Rect Rect, bool IsOccupied)> slots)
+    private void OnSlotsDetected(object? sender, List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> slots)
     {
         _logger.Log("MainWindow", $"Sending {slots.Count} slots to debug overlay.");
         Dispatcher.Invoke(() => _debugOverlayWindow?.UpdateRectangles(slots));
@@ -409,7 +409,7 @@ public partial class MainWindow : Window
         _hwndSource.AddHook(WndProc);
         _windowHandle = _hwndSource.Handle;
         _baseExtendedStyle = NativeWindowMethods.GetWindowLong(_windowHandle, NativeWindowMethods.GWL_EXSTYLE);
-        ApplyCaptureExclusion();
+        //ApplyCaptureExclusion();
         _hotkeyManager = new GlobalHotkeyManager(_hwndSource);
         RegisterHotkeys();
         SetClickThroughMode(_settings.ClickThroughEnabled);
@@ -584,6 +584,7 @@ public partial class MainWindow : Window
             _questDetectionService.UpdateArcData(snapshot);
             _projectDetectionService.UpdateArcData(snapshot);
             _hideoutDetectionService.UpdateArcData(snapshot);
+            _itemSlotDetectionService.UpdateArcData(snapshot);
             if (_autoCaptureActive)
             {
                 _questDetectionService.SetEnabled(_settings.QuestDetectionEnabled);

@@ -16,7 +16,7 @@ namespace OverlayApp
             InitializeComponent();
         }
 
-        public void UpdateRectangles(List<(Rect Rect, bool IsOccupied)> slots)
+        public void UpdateRectangles(List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> slots)
         {
             if (slots.Count > 0)
             {
@@ -41,6 +41,35 @@ namespace OverlayApp
                 Canvas.SetLeft(rect, clientPoint.X);
                 Canvas.SetTop(rect, clientPoint.Y);
                 DebugCanvas.Children.Add(rect);
+
+                if (slot.IsOccupied)
+                {
+                    var displayText = slot.ItemName != null 
+                        ? $"{slot.ItemName} ({slot.Confidence:P0})" 
+                        : "Unknown";
+
+                    // Append candidates if available
+                    if (slot.Candidates != null && slot.Candidates.Count > 0)
+                    {
+                        displayText += "\nCandidates:";
+                        foreach (var (name, score) in slot.Candidates)
+                        {
+                            displayText += $"\n  {name} ({score:P0})";
+                        }
+                    }
+
+                    var text = new TextBlock
+                    {
+                        Text = displayText,
+                        Foreground = Brushes.Yellow,
+                        FontSize = 12,
+                        FontWeight = FontWeights.Bold,
+                        Background = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0))
+                    };
+                    Canvas.SetLeft(text, clientPoint.X);
+                    Canvas.SetTop(text, clientPoint.Y + r.Height);
+                    DebugCanvas.Children.Add(text);
+                }
             }
         }
 

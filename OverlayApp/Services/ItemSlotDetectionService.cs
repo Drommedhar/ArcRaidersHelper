@@ -1,4 +1,5 @@
 using OpenCvSharp;
+using OverlayApp.Data;
 using OverlayApp.Infrastructure;
 using System;
 using System.Collections.Concurrent;
@@ -19,6 +20,11 @@ internal class ItemSlotDetectionService : IDisposable
     private readonly GameCaptureService _captureService;
     private readonly ILogger _logger;
     private readonly List<(Mat Template, Mat Mask, Mat SmallTemplate, Mat SmallMask)> _templates = new();
+    private readonly List<(string Name, Mat Template)> _itemTemplates = new();
+    private static readonly string ResourceItemsPath = Path.Combine(AppContext.BaseDirectory ?? string.Empty, "Resources", "Items");
+    private const double ConfidentMatchThreshold = 0.7;
+    private static readonly TimeSpan LowConfidenceDumpDelay = TimeSpan.FromSeconds(2);
+    private readonly Dictionary<string, LowConfidenceState> _lowConfidenceSlots = new();
     private bool _enabled;
     private bool _disposed;
     private readonly SemaphoreSlim _processingGate = new(1, 1);
@@ -27,8 +33,18 @@ internal class ItemSlotDetectionService : IDisposable
     private const int StabilityThreshold = 1; 
     private readonly TimeSpan RemovalTimeout = TimeSpan.FromMilliseconds(100);
 
-    // Event now passes a list of (Rect, IsOccupied) tuples
-    public event EventHandler<List<(System.Windows.Rect Rect, bool IsOccupied)>>? SlotsDetected;
+    /// <summary>
+    /// Confidence threshold for detecting a slot (0.0 to 1.0).
+    /// </summary>
+    public double SlotDetectionThreshold { get; set; } = 0.7;
+
+    /// <summary>
+    /// Confidence threshold for identifying an item within a slot (0.0 to 1.0).
+    /// </summary>
+    public double ItemIdentificationThreshold { get; set; } = 0.0;
+
+    // Event now passes a list of (Rect, IsOccupied, ItemName, Confidence, Candidates) tuples
+    public event EventHandler<List<(System.Windows.Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)>>? SlotsDetected;
 
     private class TrackedSlot
     {
@@ -37,6 +53,15 @@ internal class ItemSlotDetectionService : IDisposable
         public DateTime LastSeen { get; set; }
         public bool IsOccupied { get; set; }
         public bool IsVisible { get; set; }
+        public string? ItemName { get; set; }
+        public double Confidence { get; set; }
+        public List<(string Name, double Score)> Candidates { get; set; } = new();
+    }
+
+    private sealed class LowConfidenceState
+    {
+        public DateTime FirstSeen { get; set; }
+        public bool Dumped { get; set; }
     }
 
     public ItemSlotDetectionService(GameCaptureService captureService, ILogger logger)
@@ -45,6 +70,84 @@ internal class ItemSlotDetectionService : IDisposable
         _logger = logger;
         _captureService.FrameCaptured += OnFrameCaptured;
         LoadReferenceImages();
+        LoadItemTemplates();
+    }
+
+    private void LoadItemTemplates()
+    {
+        var repoItemsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "arcdata", "repo", "images", "items");
+
+        var searchDirectories = new List<string>();
+        if (!string.IsNullOrWhiteSpace(ResourceItemsPath) && Directory.Exists(ResourceItemsPath))
+        {
+            searchDirectories.Add(ResourceItemsPath);
+        }
+
+        if (Directory.Exists(repoItemsPath))
+        {
+            searchDirectories.Add(repoItemsPath);
+        }
+        else
+        {
+            _logger.Log("ItemSlotDetection", $"Item images directory not found at {repoItemsPath}");
+        }
+
+        if (searchDirectories.Count == 0)
+        {
+            _logger.Log("ItemSlotDetection", "No item image directories available for template loading.");
+            return;
+        }
+
+        foreach (var t in _itemTemplates)
+        {
+            t.Template.Dispose();
+        }
+        _itemTemplates.Clear();
+
+        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int loadedCount = 0;
+
+        foreach (var directory in searchDirectories)
+        {
+            string[] files;
+            try
+            {
+                files = Directory.GetFiles(directory, "*.png", SearchOption.AllDirectories);
+            }
+            catch (Exception ex)
+            {
+                _logger.Log("ItemSlotDetection", $"Failed to enumerate item images in {directory}: {ex.Message}");
+                continue;
+            }
+
+            foreach (var file in files)
+            {
+                var name = Path.GetFileNameWithoutExtension(file);
+                if (string.IsNullOrWhiteSpace(name) || !seenNames.Add(name))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var mat = Cv2.ImRead(file, ImreadModes.Color);
+                    if (mat.Empty())
+                    {
+                        mat.Dispose();
+                        continue;
+                    }
+
+                    _itemTemplates.Add((name, mat));
+                    loadedCount++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log("ItemSlotDetection", $"Failed to load item image {file}: {ex.Message}");
+                }
+            }
+        }
+
+        _logger.Log("ItemSlotDetection", $"Loaded {loadedCount} item templates from {string.Join(", ", searchDirectories)}.");
     }
 
     private void LoadReferenceImages()
@@ -164,7 +267,7 @@ internal class ItemSlotDetectionService : IDisposable
         }
     }
 
-    private List<(System.Windows.Rect Rect, bool IsOccupied)> UpdateTrackedSlots(List<(Rect Rect, bool IsOccupied)> currentDetections, int screenLeft, int screenTop)
+    private List<(System.Windows.Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> UpdateTrackedSlots(List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> currentDetections, int screenLeft, int screenTop)
     {
         var now = DateTime.UtcNow;
 
@@ -198,6 +301,19 @@ internal class ItemSlotDetectionService : IDisposable
                 tracked.Rect = new Rect(newX, newY, match.Rect.Width, match.Rect.Height);
 
                 tracked.IsOccupied = match.IsOccupied;
+                if (match.IsOccupied)
+                {
+                    tracked.ItemName = match.ItemName;
+                    tracked.Confidence = match.Confidence;
+                    tracked.Candidates = match.Candidates;
+                }
+                else
+                {
+                    tracked.ItemName = null;
+                    tracked.Confidence = 0;
+                    tracked.Candidates.Clear();
+                }
+
                 tracked.Stability = Math.Min(tracked.Stability + 1, MaxStability);
                 tracked.LastSeen = now;
                 
@@ -218,6 +334,9 @@ internal class ItemSlotDetectionService : IDisposable
             {
                 Rect = detection.Rect,
                 IsOccupied = detection.IsOccupied,
+                ItemName = detection.ItemName,
+                Confidence = detection.Confidence,
+                Candidates = detection.Candidates,
                 Stability = 1,
                 LastSeen = now,
                 IsVisible = false // Wait for stability threshold
@@ -230,7 +349,7 @@ internal class ItemSlotDetectionService : IDisposable
         // Return stable slots
         return _trackedSlots
             .Where(s => s.IsVisible)
-            .Select(s => (new System.Windows.Rect(s.Rect.X + screenLeft, s.Rect.Y + screenTop, s.Rect.Width, s.Rect.Height), s.IsOccupied))
+            .Select(s => (new System.Windows.Rect(s.Rect.X + screenLeft, s.Rect.Y + screenTop, s.Rect.Width, s.Rect.Height), s.IsOccupied, s.ItemName, s.Confidence, s.Candidates))
             .ToList();
     }
 
@@ -241,10 +360,10 @@ internal class ItemSlotDetectionService : IDisposable
         return Math.Sqrt(Math.Pow(c1.X - c2.X, 2) + Math.Pow(c1.Y - c2.Y, 2));
     }
 
-    private List<(Rect Rect, bool IsOccupied)> ProcessFrame(GameCaptureFrame frame)
+    private List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> ProcessFrame(GameCaptureFrame frame)
     {
         // Use ConcurrentBag for thread-safe parallel processing
-        var allCandidates = new ConcurrentBag<(Rect Rect, double Score, bool IsOccupied)>();
+        var allCandidates = new ConcurrentBag<(Rect Rect, double Score, bool IsOccupied, List<(string Name, double Score)> Candidates)>();
 
         try
         {
@@ -292,8 +411,8 @@ internal class ItemSlotDetectionService : IDisposable
                     // The geometric mask should protect us from item color bleeding if the border is thick enough.
                     Cv2.MatchTemplate(smallFrame, smallTemplate, result, TemplateMatchModes.CCoeffNormed, smallMask);
 
-                    // Threshold: 0.7. Lowered to ensure we catch all items.
-                    double threshold = 0.7; 
+                    // Threshold: Lowered to ensure we catch all items.
+                    double threshold = SlotDetectionThreshold; 
                     int matchCount = 0;
                     const int MaxMatchesPerTemplate = 50;
 
@@ -318,7 +437,8 @@ internal class ItemSlotDetectionService : IDisposable
                             // Only track occupied slots
                             if (isOccupied)
                             {
-                                allCandidates.Add((rect, maxVal, isOccupied));
+                                var candidates = IdentifyItem(matBgr, rect);
+                                allCandidates.Add((rect, maxVal, isOccupied, candidates));
                             }
 
                             // Mask out the detected area in the result to find the next one
@@ -360,7 +480,7 @@ internal class ItemSlotDetectionService : IDisposable
 
         // Apply NMS (Non-Maximum Suppression) on all candidates
         // Sort by score descending so the best matches are kept
-        var detectedSlots = new List<(Rect, bool)>();
+        var detectedSlots = new List<(Rect, bool, string?, double, List<(string Name, double Score)>)>();
         var sortedCandidates = allCandidates.OrderByDescending(c => c.Score).ToList();
 
         foreach (var candidate in sortedCandidates)
@@ -377,7 +497,8 @@ internal class ItemSlotDetectionService : IDisposable
 
             if (!overlap)
             {
-                detectedSlots.Add((candidate.Rect, candidate.IsOccupied));
+                var best = candidate.Candidates.FirstOrDefault();
+                detectedSlots.Add((candidate.Rect, candidate.IsOccupied, best.Name, best.Score, candidate.Candidates));
             }
         }
 
@@ -422,6 +543,119 @@ internal class ItemSlotDetectionService : IDisposable
         // Items usually have high edge density. Empty slots (even with animated background) usually have low edge density.
         // Threshold needs tuning. 0.05 means 5% of pixels are edges.
         return density > 0.05; 
+    }
+
+    private List<(string Name, double Score)> IdentifyItem(Mat frame, Rect slotRect)
+    {
+        var candidates = new List<(string Name, double Score)>();
+        if (_itemTemplates.Count == 0) return candidates;
+
+        // Extract ROI from the frame (which is now Color BGR)
+        // Ensure rect is within bounds
+        var roiRect = new Rect(slotRect.X, slotRect.Y, slotRect.Width, slotRect.Height);
+        if (roiRect.X < 0) roiRect.X = 0;
+        if (roiRect.Y < 0) roiRect.Y = 0;
+        if (roiRect.Right > frame.Width) roiRect.Width = frame.Width - roiRect.X;
+        if (roiRect.Bottom > frame.Height) roiRect.Height = frame.Height - roiRect.Y;
+
+        if (roiRect.Width <= 0 || roiRect.Height <= 0) return candidates;
+
+        using var roi = new Mat(frame, roiRect);
+
+        // We can parallelize this if needed, but let's try sequential first for the few occupied slots
+        foreach (var (name, template) in _itemTemplates)
+        {
+            if (template.Width > roi.Width || template.Height > roi.Height) continue;
+
+            using var result = new Mat();
+            Cv2.MatchTemplate(roi, template, result, TemplateMatchModes.CCoeffNormed);
+            Cv2.MinMaxLoc(result, out _, out double maxVal, out _, out _);
+
+            if (maxVal > ItemIdentificationThreshold)
+            {
+                candidates.Add((name, maxVal));
+            }
+        }
+
+        var sorted = candidates.OrderByDescending(x => x.Score).Take(5).ToList();
+
+        if (sorted.Count == 0)
+        {
+            ClearLowConfidenceState(slotRect);
+            return sorted;
+        }
+
+        var best = sorted[0];
+        var slotKey = GetSlotKey(slotRect);
+
+        // Only keep multiple candidates when we are below the confidence threshold
+        if (best.Score >= ConfidentMatchThreshold)
+        {
+            sorted = new List<(string Name, double Score)> { best };
+            _lowConfidenceSlots.Remove(slotKey);
+            return sorted;
+        }
+
+        // Track low-confidence slots and only dump once they have been unstable for a while
+        var now = DateTime.UtcNow;
+        if (!_lowConfidenceSlots.TryGetValue(slotKey, out var state))
+        {
+            state = new LowConfidenceState { FirstSeen = now };
+            _lowConfidenceSlots[slotKey] = state;
+        }
+
+        if (!state.Dumped && now - state.FirstSeen >= LowConfidenceDumpDelay)
+        {
+            DumpLowConfidenceRoi(best, roi);
+            state.Dumped = true;
+            state.FirstSeen = now; // Prevent immediate re-dumps if it stays low
+        }
+
+        return sorted;
+    }
+
+    private void DumpLowConfidenceRoi((string Name, double Score) best, Mat roi)
+    {
+        try
+        {
+            var dumpDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "debug", "detected_items");
+            if (!Directory.Exists(dumpDir))
+            {
+                Directory.CreateDirectory(dumpDir);
+            }
+
+            // Sanitize filename
+            var safeName = string.Join("_", best.Name.Split(Path.GetInvalidFileNameChars()));
+            var filename = $"{safeName}.png";
+            var path = Path.Combine(dumpDir, filename);
+            
+            // Only save if it doesn't exist to avoid duplicates
+            if (!File.Exists(path))
+            {
+                roi.SaveImage(path);
+                _logger.Log("ItemSlotDetection", $"Dumped low-confidence item image ({best.Score:P0}): {filename}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("ItemSlotDetection", $"Failed to dump item image: {ex.Message}");
+        }
+    }
+
+    private void ClearLowConfidenceState(Rect slotRect)
+    {
+        var slotKey = GetSlotKey(slotRect);
+        _lowConfidenceSlots.Remove(slotKey);
+    }
+
+    private static string GetSlotKey(Rect rect)
+    {
+        return $"{rect.X}_{rect.Y}_{rect.Width}_{rect.Height}";
+    }
+
+    public void UpdateArcData(ArcDataSnapshot data)
+    {
+        _ = data;
     }
 
     public void Dispose()

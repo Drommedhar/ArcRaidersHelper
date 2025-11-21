@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Windows.Data;
@@ -8,6 +9,7 @@ namespace OverlayApp.Converters;
 
 public class ImagePathConverter : IValueConverter
 {
+    private static readonly string ResourceItemsPath = Path.Combine(AppContext.BaseDirectory ?? string.Empty, "Resources", "Items");
     private static readonly string RepoPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "ArcRaidersHelper", "arcdata", "repo");
@@ -26,15 +28,21 @@ public class ImagePathConverter : IValueConverter
             filename = Path.GetFileName(uri.LocalPath);
         }
 
-        // Check common locations
-        var pathsToCheck = new[]
+        // Check custom resource images in the app output first, then fall back to arcraiders-data
+        var pathsToCheck = new List<string>();
+        if (!string.IsNullOrWhiteSpace(ResourceItemsPath))
+        {
+            pathsToCheck.Add(Path.Combine(ResourceItemsPath, filename));
+        }
+
+        pathsToCheck.AddRange(new[]
         {
             Path.Combine(RepoPath, "images", "items", filename),
             Path.Combine(RepoPath, "items", "images", filename),
             Path.Combine(RepoPath, "images", "workshop", filename),
             Path.Combine(RepoPath, "images", filename),
             Path.Combine(RepoPath, "items", filename)
-        };
+        });
 
         foreach (var path in pathsToCheck)
         {
