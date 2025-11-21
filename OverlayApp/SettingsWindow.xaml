@@ -102,6 +102,10 @@
                                   IsChecked="{Binding HideoutDetectionEnabled}"
                                   IsEnabled="{Binding AutoCaptureEnabled}"
                                   Margin="24,0,0,0"/>
+                        <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_ItemDetection]}"
+                                  IsChecked="{Binding ItemDetectionEnabled}"
+                                  IsEnabled="{Binding AutoCaptureEnabled}"
+                                  Margin="24,0,0,0"/>
                     </StackPanel>
                 </GroupBox>
 

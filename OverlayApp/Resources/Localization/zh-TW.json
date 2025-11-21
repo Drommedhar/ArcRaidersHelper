@@ -89,6 +89,7 @@
   "Settings_QuestDetection": "任務檢測",
   "Settings_ProjectDetection": "專案檢測",
   "Settings_HideoutDetection": "藏身處檢測",
+  "Settings_ItemDetection": "物品檢測",
   "Settings_AutoCaptureWarningTitle": "使用風險請自行承擔",
   "Settings_AutoCaptureWarning": "自動擷取會在背景讀取螢幕像素，某些反外掛系統可能會視此為可疑行為。ArcRaidersHelper 不對停權或處罰承擔責任。",
   "Settings_AutoCaptureStartFailed": "無法啟動自動擷取。詳情請查看記錄。",

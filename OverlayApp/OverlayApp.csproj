@@ -95,6 +95,9 @@
     <None Update="Resources\Items\battery.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Resources\Items\bettina.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Resources\Items\binoculars.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

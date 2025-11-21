@@ -90,6 +90,7 @@
   "Settings_QuestDetection": "Détection de quêtes",
   "Settings_ProjectDetection": "Détection de projets",
   "Settings_HideoutDetection": "Détection de planque",
+  "Settings_ItemDetection": "Détection d'objets",
     "Settings_AutoCaptureWarningTitle": "Utilisation à vos risques",
     "Settings_AutoCaptureWarning": "La capture automatique lit les pixels de l'écran en arrière-plan. Les systèmes anti-triche pourraient considérer ce comportement comme suspect. ArcRaidersHelper n'assume aucune responsabilité en cas de bannissement ou de sanction.",
     "Settings_AutoCaptureStartFailed": "Impossible de démarrer la capture automatique. Consultez les journaux pour plus de détails.",

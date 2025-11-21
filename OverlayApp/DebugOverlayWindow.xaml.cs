@@ -16,7 +16,7 @@ namespace OverlayApp
             InitializeComponent();
         }
 
-        public void UpdateRectangles(List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> slots)
+        public void UpdateRectangles(List<(Rect Rect, bool IsOccupied, string? ItemName, double Confidence, List<(string Name, double Score)> Candidates)> slots, HashSet<string> neededItemNames)
         {
             if (slots.Count > 0)
             {
@@ -31,42 +31,25 @@ namespace OverlayApp
                 var screenPoint = new Point(r.X, r.Y);
                 var clientPoint = PointFromScreen(screenPoint);
 
-                var rect = new Rectangle
+                if (slot.IsOccupied && slot.ItemName != null && neededItemNames.Contains(slot.ItemName))
                 {
-                    Width = r.Width,
-                    Height = r.Height,
-                    Stroke = slot.IsOccupied ? Brushes.Red : Brushes.Blue,
-                    StrokeThickness = 2
-                };
-                Canvas.SetLeft(rect, clientPoint.X);
-                Canvas.SetTop(rect, clientPoint.Y);
-                DebugCanvas.Children.Add(rect);
-
-                if (slot.IsOccupied && slot.ItemName != null)
-                {
-                    var displayText = $"{slot.ItemName} ({slot.Confidence:P0})";
-
-                    // Append candidates if available
-                    if (slot.Candidates != null && slot.Candidates.Count > 0)
+                    var exclamation = new TextBlock
                     {
-                        displayText += "\nCandidates:";
-                        foreach (var (name, score) in slot.Candidates)
-                        {
-                            displayText += $"\n  {name} ({score:P0})";
-                        }
-                    }
-
-                    var text = new TextBlock
-                    {
-                        Text = displayText,
-                        Foreground = Brushes.Yellow,
-                        FontSize = 12,
+                        Text = "!",
+                        Foreground = Brushes.Red,
+                        FontSize = 24,
                         FontWeight = FontWeights.Bold,
-                        Background = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0))
+                        Effect = new System.Windows.Media.Effects.DropShadowEffect
+                        {
+                            Color = Colors.Black,
+                            BlurRadius = 2,
+                            ShadowDepth = 1
+                        }
                     };
-                    Canvas.SetLeft(text, clientPoint.X);
-                    Canvas.SetTop(text, clientPoint.Y + r.Height);
-                    DebugCanvas.Children.Add(text);
+                    // Position at top right
+                    Canvas.SetLeft(exclamation, clientPoint.X + r.Width - 15);
+                    Canvas.SetTop(exclamation, clientPoint.Y);
+                    DebugCanvas.Children.Add(exclamation);
                 }
             }
         }
