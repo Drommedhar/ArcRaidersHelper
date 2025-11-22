@@ -21,7 +21,6 @@ internal class ItemSlotDetectionService : IDisposable
     private readonly ILogger _logger;
     private readonly List<(Mat Template, Mat Mask, Mat SmallTemplate, Mat SmallMask)> _templates = new();
     private readonly List<(string Name, Mat Template, Mat SmallTemplate)> _itemTemplates = new();
-    private static readonly string ResourceItemsPath = Path.Combine(AppContext.BaseDirectory ?? string.Empty, "Resources", "Items");
     private const double ConfidentMatchThreshold = 0.6;
     private bool _enabled;
     private bool _disposed;
@@ -75,11 +74,12 @@ internal class ItemSlotDetectionService : IDisposable
     private void LoadItemTemplates()
     {
         var repoItemsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "arcdata", "repo", "images", "items");
+        var repoItemsInGamePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "arcdata", "repo", "images", "items_ingame");
 
         var searchDirectories = new List<string>();
-        if (!string.IsNullOrWhiteSpace(ResourceItemsPath) && Directory.Exists(ResourceItemsPath))
+        if (!string.IsNullOrWhiteSpace(repoItemsInGamePath) && Directory.Exists(repoItemsInGamePath))
         {
-            searchDirectories.Add(ResourceItemsPath);
+            searchDirectories.Add(repoItemsInGamePath);
         }
 
         if (Directory.Exists(repoItemsPath))
