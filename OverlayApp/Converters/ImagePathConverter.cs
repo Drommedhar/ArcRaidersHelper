@@ -9,7 +9,6 @@ namespace OverlayApp.Converters;
 
 public class ImagePathConverter : IValueConverter
 {
-    private static readonly string ResourceItemsPath = Path.Combine(AppContext.BaseDirectory ?? string.Empty, "Resources", "Items");
     private static readonly string RepoPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "ArcRaidersHelper", "arcdata", "repo");
@@ -30,13 +29,9 @@ public class ImagePathConverter : IValueConverter
 
         // Check custom resource images in the app output first, then fall back to arcraiders-data
         var pathsToCheck = new List<string>();
-        if (!string.IsNullOrWhiteSpace(ResourceItemsPath))
-        {
-            pathsToCheck.Add(Path.Combine(ResourceItemsPath, filename));
-        }
-
         pathsToCheck.AddRange(new[]
         {
+            Path.Combine(RepoPath, "images", "items_ingame", filename),
             Path.Combine(RepoPath, "images", "items", filename),
             Path.Combine(RepoPath, "items", "images", filename),
             Path.Combine(RepoPath, "images", "workshop", filename),

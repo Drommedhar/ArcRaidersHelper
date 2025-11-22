@@ -73,9 +73,14 @@ internal class ItemSlotDetectionService : IDisposable
 
     private void LoadItemTemplates()
     {
-        var repoItemsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "arcdata", "repo", "images", "items_ingame");
+        var repoItemsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "arcdata", "repo", "images", "items");
+        var repoItemsInGamePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcRaidersHelper", "arcdata", "repo", "images", "items_ingame");
 
         var searchDirectories = new List<string>();
+        if (!string.IsNullOrWhiteSpace(repoItemsInGamePath) && Directory.Exists(repoItemsInGamePath))
+        {
+            searchDirectories.Add(repoItemsInGamePath);
+        }
 
         if (Directory.Exists(repoItemsPath))
         {
