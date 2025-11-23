@@ -27,13 +27,13 @@ Visualize your journey through the Arc Raiders questlines with two powerful view
 **Quest Tree**
 The interactive tree view maps out quest dependencies, allowing you to see exactly what needs to be done to unlock future missions.
 - **Visual Progression**: Clear lines connect quests to their prerequisites.
-- **Status Tracking**: Color-coded cards indicate whether a quest is Active (Green), Completed (Grey/Checked), or Locked.
-- **Details**: Click any quest node to see objectives and rewards.
+- **Status Tracking**: Color-coded cards indicate whether a quest is Completed (Green), active (non transparent) or locked (transparent).
+- **Details**: Click any quest node to see objectives and rewards or click the checkmark to complete it.
 
 ![Tree view](images/image-2.png)
 
 **Quest Log**
-Switch to a list view for a compact summary of all your quests, filterable by status.
+If click-through mode is activated on the quest view, the view will switch to a quest tracker mode like in World of Warcraft.
 
 ![Quest log view](images/image-1.png)
 
@@ -45,6 +45,11 @@ This project uses data provided by the community.
 - **Inspired by**: [arctracker.io](https://arctracker.io)
 
 All game content, including but not limited to game mechanics, items, names, and imagery, is copyright © Embark Studios AB. This repository is a community resource and is not affiliated with or endorsed by Embark Studios AB.
+
+### Items Database
+Find specific items in an easy to use items database view.
+
+![Items](images/database.png)
 
 ## Quick Start
 
