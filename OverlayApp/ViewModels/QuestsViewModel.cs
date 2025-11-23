@@ -11,7 +11,9 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace OverlayApp.ViewModels;
 
@@ -31,8 +33,10 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 
     public ObservableCollection<QuestDisplayModel> Quests { get; } = new();
     public ObservableCollection<QuestTreeNode> TreeNodes { get; } = new();
-    public ObservableCollection<QuestTreeConnection> TreeConnections { get; } = new();
     public ObservableCollection<QuestDisplayModel> ActiveQuests { get; } = new();
+
+    [ObservableProperty]
+    private Geometry _connectionPathData = Geometry.Empty;
 
     [ObservableProperty]
     private double _treeWidth = 2000;
@@ -64,13 +68,11 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 
     public override void Update(ArcDataSnapshot? snapshot, UserProgressState? progress, ProgressReport? report)
     {
-        var expandedQuestIds = _allQuests.Where(q => q.IsExpanded).Select(q => q.QuestId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var q in _allQuests) q.PropertyChanged -= OnQuestPropertyChanged;
-        _allQuests.Clear();
-        Quests.Clear();
         if (snapshot?.Quests is null)
         {
+            foreach (var q in _allQuests) q.PropertyChanged -= OnQuestPropertyChanged;
+            _allQuests.Clear();
+            Quests.Clear();
             EmptyMessage = LocalizationService.Instance["Quests_EmptyMessage"];
             return;
         }
@@ -83,10 +85,13 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
             .Select(q => q.QuestId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var currentQuestIds = new HashSet<string>();
+
         foreach (var pair in snapshot.Quests)
         {
             var questId = pair.Key;
             var definition = pair.Value;
+            currentQuestIds.Add(questId);
 
             userQuests.TryGetValue(questId, out var userQuest);
             var status = userQuest?.Status ?? QuestProgressStatus.NotStarted;
@@ -187,29 +192,61 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 }
             }
 
-            var model = new QuestDisplayModel(_progressStore, progress, snapshot.Quests)
+            var existing = _allQuests.FirstOrDefault(q => q.QuestId == questId);
+            if (existing != null)
             {
-                QuestId = questId,
-                Name = LocalizationHelper.ResolveName(definition.Name) ?? questId,
-                Description = LocalizationHelper.ResolveName(definition.Description) ?? string.Empty,
-                Trader = definition.Trader ?? "Unknown",
-                Status = statusStr,
-                ProgressText = totalObjectives > 0 ? $"{completedObjectives}/{totalObjectives}" : "-",
-                ProgressPercent = progressPercent,
-                IsTracked = userQuest?.Tracked ?? false,
-                Notes = userQuest?.Notes ?? string.Empty,
-                RequiredItems = CreateItemQuantityList(definition.RequiredItems, snapshot.Items, OnNavigate),
-                RewardItems = CreateItemQuantityList(definition.RewardItems, snapshot.Items, OnNavigate),
-                Objectives = objectives,
-                Prerequisites = prereqs,
-                Unlocks = unlocks,
-                IsExpanded = expandedQuestIds.Contains(questId)
-            };
-            model.PropertyChanged += OnQuestPropertyChanged;
-            _allQuests.Add(model);
+                existing.UpdateState(progress, snapshot.Quests);
+                existing.Name = LocalizationHelper.ResolveName(definition.Name) ?? questId;
+                existing.Description = LocalizationHelper.ResolveName(definition.Description) ?? string.Empty;
+                existing.Trader = definition.Trader ?? "Unknown";
+                existing.Status = statusStr;
+                existing.ProgressText = totalObjectives > 0 ? $"{completedObjectives}/{totalObjectives}" : "-";
+                existing.ProgressPercent = progressPercent;
+                existing.IsTracked = userQuest?.Tracked ?? false;
+                existing.Notes = userQuest?.Notes ?? string.Empty;
+                existing.RequiredItems = CreateItemQuantityList(definition.RequiredItems, snapshot.Items, OnNavigate);
+                existing.RewardItems = CreateItemQuantityList(definition.RewardItems, snapshot.Items, OnNavigate);
+                existing.Objectives = objectives;
+                existing.Prerequisites = prereqs;
+                existing.Unlocks = unlocks;
+            }
+            else
+            {
+                var model = new QuestDisplayModel(_progressStore, progress, snapshot.Quests)
+                {
+                    QuestId = questId,
+                    Name = LocalizationHelper.ResolveName(definition.Name) ?? questId,
+                    Description = LocalizationHelper.ResolveName(definition.Description) ?? string.Empty,
+                    Trader = definition.Trader ?? "Unknown",
+                    Status = statusStr,
+                    ProgressText = totalObjectives > 0 ? $"{completedObjectives}/{totalObjectives}" : "-",
+                    ProgressPercent = progressPercent,
+                    IsTracked = userQuest?.Tracked ?? false,
+                    Notes = userQuest?.Notes ?? string.Empty,
+                    RequiredItems = CreateItemQuantityList(definition.RequiredItems, snapshot.Items, OnNavigate),
+                    RewardItems = CreateItemQuantityList(definition.RewardItems, snapshot.Items, OnNavigate),
+                    Objectives = objectives,
+                    Prerequisites = prereqs,
+                    Unlocks = unlocks,
+                    IsExpanded = false
+                };
+                model.PropertyChanged += OnQuestPropertyChanged;
+                _allQuests.Add(model);
+            }
+        }
+
+        // Remove stale quests
+        for (int i = _allQuests.Count - 1; i >= 0; i--)
+        {
+            if (!currentQuestIds.Contains(_allQuests[i].QuestId))
+            {
+                _allQuests[i].PropertyChanged -= OnQuestPropertyChanged;
+                _allQuests.RemoveAt(i);
+            }
         }
 
         ApplyFilter();
+        TreeNodes.Clear();
         BuildTree();
         UpdateActiveQuests();
     }
@@ -236,10 +273,12 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 
     private void BuildTree()
     {
-        TreeNodes.Clear();
-        TreeConnections.Clear();
-        
-        if (_allQuests.Count == 0) return;
+        if (_allQuests.Count == 0) 
+        {
+            TreeNodes.Clear();
+            ConnectionPathData = Geometry.Empty;
+            return;
+        }
 
         var questMap = _allQuests.ToDictionary(q => q.QuestId);
         var depths = new Dictionary<string, int>();
@@ -339,61 +378,82 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
         double currentY = startY;
         double maxX = 0;
         double maxY = 0;
-
-        for (int d = 0; d <= maxDepth; d++)
+        
+        var geometry = new StreamGeometry();
+        using (var ctx = geometry.Open())
         {
-            var layer = layers[d];
-            var currentLayerWidth = layer.Count * xSpacing;
-            var layerOffsetX = (maxLayerWidth - currentLayerWidth) / 2.0;
+            // Prepare for node updates
+            var existingNodes = TreeNodes.ToDictionary(n => n.Quest.QuestId);
+            var newNodes = new List<QuestTreeNode>();
 
-            for (int i = 0; i < layer.Count; i++)
+            for (int d = 0; d <= maxDepth; d++)
             {
-                var quest = layer[i];
-                // Top -> Bottom: Y depends on depth (d), X depends on index (i)
-                var x = startX + layerOffsetX + i * xSpacing;
-                var y = currentY;
+                var layer = layers[d];
+                var currentLayerWidth = layer.Count * xSpacing;
+                var layerOffsetX = (maxLayerWidth - currentLayerWidth) / 2.0;
 
-                if (x + cardWidth > maxX) maxX = x + cardWidth;
-                if (y + EstimateNodeHeight(quest) > maxY) maxY = y + EstimateNodeHeight(quest);
-
-                TreeNodes.Add(new QuestTreeNode 
-                { 
-                    X = x, 
-                    Y = y, 
-                    Quest = quest 
-                });
-
-                // Add connections to prerequisites
-                foreach (var prereq in quest.Prerequisites)
+                for (int i = 0; i < layer.Count; i++)
                 {
-                    var pNode = TreeNodes.FirstOrDefault(n => n.Quest.QuestId == prereq.QuestId);
-                    if (pNode != null)
+                    var quest = layer[i];
+                    // Top -> Bottom: Y depends on depth (d), X depends on index (i)
+                    var x = startX + layerOffsetX + i * xSpacing;
+                    var y = currentY;
+
+                    if (x + cardWidth > maxX) maxX = x + cardWidth;
+                    if (y + EstimateNodeHeight(quest) > maxY) maxY = y + EstimateNodeHeight(quest);
+
+                    // Update or Create Node
+                    if (existingNodes.TryGetValue(quest.QuestId, out var existingNode))
                     {
-                        // Connect from Center of Parent Header to Top Center of Child
-                        // This ensures lines start at a stable position regardless of expansion
-                        // The line will be drawn BEHIND the parent card (if opaque)
-                        var startNodeX = pNode.X + cardWidth / 2;
-                        var startNodeY = pNode.Y + 45; // Center of header (90/2)
-                        
-                        var endNodeX = x + cardWidth / 2;
-                        var endNodeY = y; // Top of child
+                        if (Math.Abs(existingNode.X - x) > 0.1) existingNode.X = x;
+                        if (Math.Abs(existingNode.Y - y) > 0.1) existingNode.Y = y;
+                    }
+                    else
+                    {
+                        var newNode = new QuestTreeNode 
+                        { 
+                            X = x, 
+                            Y = y, 
+                            Quest = quest 
+                        };
+                        newNodes.Add(newNode);
+                        existingNodes[quest.QuestId] = newNode; 
+                    }
 
-                        var distY = endNodeY - startNodeY;
-                        var cp1X = startNodeX;
-                        var cp1Y = startNodeY + distY / 2;
-                        var cp2X = endNodeX;
-                        var cp2Y = endNodeY - distY / 2;
-
-                        TreeConnections.Add(new QuestTreeConnection
+                    // Add connections to prerequisites
+                    foreach (var prereq in quest.Prerequisites)
+                    {
+                        if (existingNodes.TryGetValue(prereq.QuestId, out var pNode))
                         {
-                            PathData = $"M {startNodeX},{startNodeY} C {cp1X},{cp1Y} {cp2X},{cp2Y} {endNodeX},{endNodeY}"
-                        });
+                            // Connect from Center of Parent Header to Top Center of Child
+                            var startNodeX = pNode.X + cardWidth / 2;
+                            var startNodeY = pNode.Y + 45; // Center of header (90/2)
+                            
+                            var endNodeX = x + cardWidth / 2;
+                            var endNodeY = y; // Top of child
+
+                            var distY = endNodeY - startNodeY;
+                            var cp1X = startNodeX;
+                            var cp1Y = startNodeY + distY / 2;
+                            var cp2X = endNodeX;
+                            var cp2Y = endNodeY - distY / 2;
+
+                            ctx.BeginFigure(new System.Windows.Point(startNodeX, startNodeY), false, false);
+                            ctx.BezierTo(new System.Windows.Point(cp1X, cp1Y), new System.Windows.Point(cp2X, cp2Y), new System.Windows.Point(endNodeX, endNodeY), true, false);
+                        }
                     }
                 }
+                currentY += layerHeights[d] + 50; // Gap
             }
-            currentY += layerHeights[d] + 50; // Gap
+
+            if (newNodes.Count > 0)
+            {
+                foreach (var node in newNodes) TreeNodes.Add(node);
+            }
         }
 
+        geometry.Freeze();
+        ConnectionPathData = geometry;
         TreeWidth = maxX + 100;
         TreeHeight = maxY + 100;
     }
@@ -466,7 +526,6 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 
     private void ApplyFilter()
     {
-        Quests.Clear();
         var filtered = _allQuests.AsEnumerable();
 
         switch (SelectedFilter)
@@ -484,14 +543,41 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 
         var sorted = filtered
             .OrderBy(q => q.Status == "Completed" ? 2 : q.Status == "NotStarted" ? 1 : 0)
-            .ThenBy(q => q.Name);
+            .ThenBy(q => q.Name)
+            .ToList();
 
-        foreach (var item in sorted)
-        {
-            Quests.Add(item);
-        }
+        SyncCollection(Quests, sorted);
 
         EmptyMessage = Quests.Count == 0 ? LocalizationService.Instance["Quests_EmptyMessage"] : string.Empty;
+    }
+
+    private static void SyncCollection<T>(ObservableCollection<T> collection, List<T> target)
+    {
+        // 1. Remove items not in target
+        var targetSet = new HashSet<T>(target);
+        for (int i = collection.Count - 1; i >= 0; i--)
+        {
+            if (!targetSet.Contains(collection[i]))
+            {
+                collection.RemoveAt(i);
+            }
+        }
+
+        // 2. Add/Move items
+        for (int i = 0; i < target.Count; i++)
+        {
+            var item = target[i];
+            var oldIndex = collection.IndexOf(item);
+
+            if (oldIndex < 0)
+            {
+                collection.Insert(i, item);
+            }
+            else if (oldIndex != i)
+            {
+                collection.Move(oldIndex, i);
+            }
+        }
     }
 
     private void OnNavigate(string itemId)
@@ -557,12 +643,18 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
 internal partial class QuestDisplayModel : ObservableObject
 {
     private readonly UserProgressStore _progressStore;
-    private readonly UserProgressState? _progressState;
-    private readonly IReadOnlyDictionary<string, ArcQuest> _questDefinitions;
+    private UserProgressState? _progressState;
+    private IReadOnlyDictionary<string, ArcQuest> _questDefinitions;
 
     public QuestDisplayModel(UserProgressStore progressStore, UserProgressState? progressState, IReadOnlyDictionary<string, ArcQuest> questDefinitions)
     {
         _progressStore = progressStore;
+        _progressState = progressState;
+        _questDefinitions = questDefinitions;
+    }
+
+    public void UpdateState(UserProgressState? progressState, IReadOnlyDictionary<string, ArcQuest> questDefinitions)
+    {
         _progressState = progressState;
         _questDefinitions = questDefinitions;
     }
@@ -577,34 +669,60 @@ internal partial class QuestDisplayModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanComplete))]
+    [NotifyPropertyChangedFor(nameof(CanReset))]
     private string _status = string.Empty;
 
-    public string ProgressText { get; set; } = string.Empty;
+    [ObservableProperty]
+    private string _progressText = string.Empty;
 
-    public double ProgressPercent { get; set; }
+    [ObservableProperty]
+    private double _progressPercent;
 
-    public bool IsTracked { get; set; }
+    [ObservableProperty]
+    private bool _isTracked;
 
-    public string Notes { get; set; } = string.Empty;
+    [ObservableProperty]
+    private string _notes = string.Empty;
 
-    public List<ItemQuantityViewModel> RequiredItems { get; set; } = new();
+    [ObservableProperty]
+    private List<ItemQuantityViewModel> _requiredItems = new();
 
-    public List<ItemQuantityViewModel> RewardItems { get; set; } = new();
+    [ObservableProperty]
+    private List<ItemQuantityViewModel> _rewardItems = new();
 
-    public List<QuestObjectiveViewModel> Objectives { get; set; } = new();
+    [ObservableProperty]
+    private List<QuestObjectiveViewModel> _objectives = new();
 
-    public List<QuestReferenceViewModel> Prerequisites { get; set; } = new();
-    public List<QuestReferenceViewModel> Unlocks { get; set; } = new();
+    [ObservableProperty]
+    private List<QuestReferenceViewModel> _prerequisites = new();
+
+    [ObservableProperty]
+    private List<QuestReferenceViewModel> _unlocks = new();
 
     [ObservableProperty]
     private bool _isExpanded;
 
     public bool CanComplete => Status != "Completed";
+    public bool CanReset => Status == "Completed";
 
     [RelayCommand]
     private void ToggleExpand()
     {
         IsExpanded = !IsExpanded;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanReset))]
+    private async Task ResetQuest()
+    {
+        if (_progressState == null) return;
+
+        var quest = _progressState.Quests.FirstOrDefault(q => q.QuestId == QuestId);
+        if (quest != null && quest.Status == QuestProgressStatus.Completed)
+        {
+            quest.Status = QuestProgressStatus.NotStarted;
+            Status = QuestProgressStatus.NotStarted.ToString();
+            await _progressStore.SaveAsync(_progressState, System.Threading.CancellationToken.None);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanComplete))]
@@ -684,14 +802,14 @@ public class QuestReferenceViewModel
     public ICommand NavigateCommand { get; }
 }
 
-internal class QuestTreeNode
+internal partial class QuestTreeNode : ObservableObject
 {
-    public double X { get; set; }
-    public double Y { get; set; }
+    [ObservableProperty]
+    private double _x;
+
+    [ObservableProperty]
+    private double _y;
+
     public QuestDisplayModel Quest { get; set; } = null!;
 }
 
-internal class QuestTreeConnection
-{
-    public string PathData { get; set; } = string.Empty;
-}

@@ -6,7 +6,7 @@ using System.Windows.Media;
 
 namespace OverlayApp.Views;
 
-public partial class ItemsDbView : UserControl
+public partial class ItemsDbView : System.Windows.Controls.UserControl
 {
     public ItemsDbView()
     {

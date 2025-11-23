@@ -275,6 +275,21 @@
                         </Button.Resources>
                     </Button>
 
+                    <Button Content="Mark Incomplete" 
+                            Command="{Binding ResetQuestCommand}"
+                            Margin="0,8,0,0"
+                            Padding="8,4"
+                            Background="#33FF4444"
+                            Foreground="White"
+                            BorderThickness="0"
+                            Visibility="{Binding CanReset, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+
                     <TextBlock Text="{Binding Notes}"
                                TextWrapping="Wrap"
                                Foreground="#88FFFFFF"
@@ -342,6 +357,33 @@
                                         </Setter>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding CanComplete}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                 </Button.Style>
+                            </Button>
+
+                            <Button DockPanel.Dock="Right"
+                                    Command="{Binding ResetQuestCommand}"
+                                    Content="↺"
+                                    Width="24" Height="24"
+                                    Margin="0,0,4,0"
+                                    Background="#33FF4444" Foreground="White" BorderThickness="0">
+                                 <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" CornerRadius="12">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CanReset}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -658,21 +700,12 @@
                     </Button>
                 </DockPanel>
 
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <Grid>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" PanningMode="Both">
+                    <Grid CacheMode="BitmapCache">
                         <!-- Connections -->
-                        <ItemsControl ItemsSource="{Binding TreeConnections}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <Canvas Width="{Binding TreeWidth}" Height="{Binding TreeHeight}"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Path Data="{Binding PathData}" Stroke="#44FFFFFF" StrokeThickness="2"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <Canvas Width="{Binding TreeWidth}" Height="{Binding TreeHeight}">
+                            <Path Data="{Binding ConnectionPathData}" Stroke="#44FFFFFF" StrokeThickness="2" IsHitTestVisible="False"/>
+                        </Canvas>
 
                         <!-- Nodes -->
                         <ItemsControl ItemsSource="{Binding TreeNodes}">

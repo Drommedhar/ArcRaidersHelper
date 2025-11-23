@@ -4,7 +4,7 @@ using System.Windows.Controls;
 
 namespace OverlayApp.Views;
 
-public partial class QuestsView : UserControl
+public partial class QuestsView : System.Windows.Controls.UserControl
 {
     public QuestsView()
     {

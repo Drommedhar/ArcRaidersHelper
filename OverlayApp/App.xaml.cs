@@ -8,7 +8,7 @@ namespace OverlayApp;
 /// <summary>
 /// Interaction logic for App.xaml
 /// </summary>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private ILogger? _logger;
 
@@ -29,7 +29,7 @@ public partial class App : Application
     {
         _logger?.Log("Crash", $"Unhandled UI exception: {e.Exception}");
         e.Handled = true; // Prevent immediate crash if possible, though state might be corrupt
-        MessageBox.Show($"An unexpected error occurred: {e.Exception.Message}", "ArcRaidersHelper Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        System.Windows.MessageBox.Show($"An unexpected error occurred: {e.Exception.Message}", "ArcRaidersHelper Error", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -37,7 +37,7 @@ public partial class App : Application
         if (e.ExceptionObject is Exception ex)
         {
             _logger?.Log("Crash", $"Fatal domain exception: {ex}");
-            MessageBox.Show($"A fatal error occurred: {ex.Message}", "ArcRaidersHelper Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show($"A fatal error occurred: {ex.Message}", "ArcRaidersHelper Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

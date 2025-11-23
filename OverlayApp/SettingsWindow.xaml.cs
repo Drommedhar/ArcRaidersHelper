@@ -28,7 +28,7 @@ public partial class SettingsWindow : Window
     {
         if (!ViewModel.ApplyChanges(out var updated))
         {
-            MessageBox.Show(this, LocalizationService.Instance["Settings_InvalidHotkeys"], LocalizationService.Instance["App_Title"], MessageBoxButton.OK, MessageBoxImage.Warning);
+            System.Windows.MessageBox.Show(this, LocalizationService.Instance["Settings_InvalidHotkeys"], LocalizationService.Instance["App_Title"], MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -50,7 +50,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        MessageBox.Show(this,
+        System.Windows.MessageBox.Show(this,
             LocalizationService.Instance["Settings_AutoCaptureWarning"],
             LocalizationService.Instance["Settings_AutoCaptureWarningTitle"],
             MessageBoxButton.OK,
