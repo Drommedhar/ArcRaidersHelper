@@ -25,6 +25,8 @@ using Button = System.Windows.Controls.Button;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MessageBox = System.Windows.MessageBox;
 using Point = System.Windows.Point;
+using Forms = System.Windows.Forms;
+using Drawing = System.Drawing;
 
 namespace OverlayApp;
 
@@ -74,6 +76,9 @@ public partial class MainWindow : Window
     private bool _firstCaptureFrameLogged;
     private bool _captureExclusionApplied;
     private bool _autoCaptureActive;
+    private Forms.NotifyIcon? _notifyIcon;
+    private Forms.ContextMenuStrip? _trayMenu;
+    private Forms.ToolStripMenuItem? _trayClickThroughItem;
 
     public MainWindow()
     {
@@ -410,6 +415,60 @@ public partial class MainWindow : Window
 
         _ = CheckForUpdatesAsync();
         UpdateAutoCaptureState(_settings.AutoCaptureEnabled);
+        InitializeTrayIcon();
+    }
+
+    private void InitializeTrayIcon()
+    {
+        _trayMenu = new Forms.ContextMenuStrip();
+        
+        var refreshItem = new Forms.ToolStripMenuItem(LocalizationService.Instance["Menu_RefreshData"]);
+        refreshItem.Click += (s, e) => OnReloadRequested(this, new RoutedEventArgs());
+        _trayMenu.Items.Add(refreshItem);
+
+        _trayClickThroughItem = new Forms.ToolStripMenuItem(LocalizationService.Instance["Menu_ClickThrough"]);
+        _trayClickThroughItem.Click += (s, e) => OnClickThroughMenuItemClicked(this, new RoutedEventArgs());
+        _trayMenu.Items.Add(_trayClickThroughItem);
+
+        _trayMenu.Items.Add(new Forms.ToolStripSeparator());
+
+        var settingsItem = new Forms.ToolStripMenuItem(LocalizationService.Instance["Menu_Settings"]);
+        settingsItem.Click += (s, e) => OnSettingsRequested(this, new RoutedEventArgs());
+        _trayMenu.Items.Add(settingsItem);
+
+        var closeItem = new Forms.ToolStripMenuItem(LocalizationService.Instance["Menu_Close"]);
+        closeItem.Click += (s, e) => OnCloseRequested(this, new RoutedEventArgs());
+        _trayMenu.Items.Add(closeItem);
+
+        _notifyIcon = new Forms.NotifyIcon
+        {
+            Text = LocalizationService.Instance["App_Title"],
+            Visible = true,
+            ContextMenuStrip = _trayMenu
+        };
+
+        try 
+        {
+            var processPath = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(processPath))
+            {
+                _notifyIcon.Icon = Drawing.Icon.ExtractAssociatedIcon(processPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Log("TrayIcon", $"Failed to load icon: {ex.Message}");
+        }
+
+        _notifyIcon.MouseClick += (s, e) =>
+        {
+            if (e.Button == Forms.MouseButtons.Left)
+            {
+                ToggleOverlay();
+            }
+        };
+        
+        UpdateClickThroughMenuState(_settings.ClickThroughEnabled);
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -432,6 +491,7 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
+        _notifyIcon?.Dispose();
         PersistWindowPlacementToSettings();
         Settings.Default.Save();
         _settingsStore.Save(_settings);
@@ -970,6 +1030,14 @@ public partial class MainWindow : Window
             ? LocalizationService.Instance["Menu_ClickThroughOn"] 
             : LocalizationService.Instance["Menu_ClickThroughOff"];
         _suppressMenuToggleEvents = false;
+
+        if (_trayClickThroughItem != null)
+        {
+             _trayClickThroughItem.Checked = isEnabled;
+             _trayClickThroughItem.Text = isEnabled 
+                ? LocalizationService.Instance["Menu_ClickThroughOn"] 
+                : LocalizationService.Instance["Menu_ClickThroughOff"];
+        }
     }
 
     private void UpdateAutoCaptureState(bool enable)

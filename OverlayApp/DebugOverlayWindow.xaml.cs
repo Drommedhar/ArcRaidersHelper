@@ -28,7 +28,7 @@ namespace OverlayApp
             foreach (var slot in slots)
             {
                 var r = slot.Rect;
-                var screenPoint = new Point(r.X, r.Y);
+                var screenPoint = new System.Windows.Point(r.X, r.Y);
                 var clientPoint = PointFromScreen(screenPoint);
 
                 if (slot.IsOccupied && slot.ItemName != null && neededItemNames.Contains(slot.ItemName))
@@ -36,7 +36,7 @@ namespace OverlayApp
                     var exclamation = new TextBlock
                     {
                         Text = "!",
-                        Foreground = Brushes.Red,
+                        Foreground = System.Windows.Media.Brushes.Red,
                         FontSize = 24,
                         FontWeight = FontWeights.Bold,
                         Effect = new System.Windows.Media.Effects.DropShadowEffect
@@ -62,7 +62,7 @@ namespace OverlayApp
             if (source?.CompositionTarget != null)
             {
                 var matrix = source.CompositionTarget.TransformFromDevice;
-                var topLeft = matrix.Transform(new Point(left, top));
+                var topLeft = matrix.Transform(new System.Windows.Point(left, top));
                 var size = matrix.Transform(new Vector(width, height));
 
                 double newLeft = topLeft.X;
