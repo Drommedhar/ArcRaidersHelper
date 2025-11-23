@@ -12,6 +12,8 @@
         ResizeMode="NoResize"
         WindowStyle="ToolWindow"
         ShowInTaskbar="False"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource TextBrush}"
         Loaded="OnWindowLoaded">
     <Grid Margin="16">
         <Grid.RowDefinitions>

@@ -2,6 +2,8 @@
 
 A lightweight, native WPF overlay for Arc Raiders that helps you track your progress, quests, and needed items directly over the game.
 
+![Overview](images/overview.png)
+
 ## Features
 
 - **Native Overlay**: A high-performance, always-on-top overlay that blends seamlessly with your game.
@@ -17,6 +19,23 @@ A lightweight, native WPF overlay for Arc Raiders that helps you track your prog
   - Configurable global hotkeys.
   - Window position and size persistence.
 - **Auto-Updates**: Automatically checks for and installs the latest version on startup.
+
+### Quest View
+
+Visualize your journey through the Arc Raiders questlines with two powerful viewing modes.
+
+**Quest Tree**
+The interactive tree view maps out quest dependencies, allowing you to see exactly what needs to be done to unlock future missions.
+- **Visual Progression**: Clear lines connect quests to their prerequisites.
+- **Status Tracking**: Color-coded cards indicate whether a quest is Active (Green), Completed (Grey/Checked), or Locked.
+- **Details**: Click any quest node to see objectives and rewards.
+
+![Tree view](images/image-2.png)
+
+**Quest Log**
+Switch to a list view for a compact summary of all your quests, filterable by status.
+
+![Quest log view](images/image-1.png)
 
 ## Data & Attribution
 

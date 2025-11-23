@@ -45,11 +45,6 @@
                       ItemsSource="{Binding AvailableTypes}"
                       SelectedItem="{Binding SelectedType}"
                       ToolTip="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_FilterTypeTooltip]}">
-                <ComboBox.ItemContainerStyle>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="Foreground" Value="Black"/>
-                    </Style>
-                </ComboBox.ItemContainerStyle>
             </ComboBox>
 
             <ComboBox Grid.Column="2"
@@ -59,11 +54,6 @@
                       ItemsSource="{Binding AvailableRarities}"
                       SelectedItem="{Binding SelectedRarity}"
                       ToolTip="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[ItemsDb_FilterRarityTooltip]}">
-                <ComboBox.ItemContainerStyle>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="Foreground" Value="Black"/>
-                    </Style>
-                </ComboBox.ItemContainerStyle>
             </ComboBox>
         </Grid>
 
