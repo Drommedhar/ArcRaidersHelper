@@ -13,7 +13,7 @@ public sealed class UserSettings
     public double OverlayOpacity { get; set; } = 1.0;
     public double ClickThroughOverlayOpacity { get; set; } = 0.6;
     public bool AutoCaptureEnabled { get; set; }
-    public bool QuestDetectionEnabled { get; set; } = true;
+    public bool QuestDetectionEnabled { get; set; } = false;
     public bool ProjectDetectionEnabled { get; set; } = true;
     public bool HideoutDetectionEnabled { get; set; } = true;
     public bool ItemDetectionEnabled { get; set; } = true;

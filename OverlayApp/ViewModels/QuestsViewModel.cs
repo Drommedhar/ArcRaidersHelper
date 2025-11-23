@@ -7,6 +7,7 @@ using OverlayApp.Progress;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -29,12 +30,30 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
     }
 
     public ObservableCollection<QuestDisplayModel> Quests { get; } = new();
+    public ObservableCollection<QuestTreeNode> TreeNodes { get; } = new();
+    public ObservableCollection<QuestTreeConnection> TreeConnections { get; } = new();
+    public ObservableCollection<QuestDisplayModel> ActiveQuests { get; } = new();
+
+    [ObservableProperty]
+    private double _treeWidth = 2000;
+
+    [ObservableProperty]
+    private double _treeHeight = 2000;
 
     [ObservableProperty]
     private string _emptyMessage;
 
     [ObservableProperty]
     private string _selectedFilter = "Available";
+
+    [ObservableProperty]
+    private bool _isTreeView;
+
+    [RelayCommand]
+    private void ToggleViewMode()
+    {
+        IsTreeView = !IsTreeView;
+    }
 
     [RelayCommand]
     private void SetFilter(string filter)
@@ -47,6 +66,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
     {
         var expandedQuestIds = _allQuests.Where(q => q.IsExpanded).Select(q => q.QuestId).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        foreach (var q in _allQuests) q.PropertyChanged -= OnQuestPropertyChanged;
         _allQuests.Clear();
         Quests.Clear();
         if (snapshot?.Quests is null)
@@ -167,7 +187,7 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 }
             }
 
-            _allQuests.Add(new QuestDisplayModel(_progressStore, progress)
+            var model = new QuestDisplayModel(_progressStore, progress, snapshot.Quests)
             {
                 QuestId = questId,
                 Name = LocalizationHelper.ResolveName(definition.Name) ?? questId,
@@ -184,10 +204,249 @@ internal sealed partial class QuestsViewModel : NavigationPaneViewModel
                 Prerequisites = prereqs,
                 Unlocks = unlocks,
                 IsExpanded = expandedQuestIds.Contains(questId)
-            });
+            };
+            model.PropertyChanged += OnQuestPropertyChanged;
+            _allQuests.Add(model);
         }
 
         ApplyFilter();
+        BuildTree();
+        UpdateActiveQuests();
+    }
+
+    private void OnQuestPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(QuestDisplayModel.IsExpanded))
+        {
+            BuildTree();
+        }
+    }
+
+    private void UpdateActiveQuests()
+    {
+        ActiveQuests.Clear();
+        // "Active" means available to be worked on.
+        var active = _allQuests.Where(q => q.Status != "Locked" && q.Status != "Completed")
+                               .OrderBy(q => q.Name);
+        foreach (var q in active)
+        {
+            ActiveQuests.Add(q);
+        }
+    }
+
+    private void BuildTree()
+    {
+        TreeNodes.Clear();
+        TreeConnections.Clear();
+        
+        if (_allQuests.Count == 0) return;
+
+        var questMap = _allQuests.ToDictionary(q => q.QuestId);
+        var depths = new Dictionary<string, int>();
+        
+        // Calculate depths
+        foreach (var quest in _allQuests)
+        {
+            CalculateDepth(quest.QuestId, questMap, depths, new HashSet<string>());
+        }
+
+        if (depths.Count == 0) return;
+
+        var maxDepth = depths.Values.Max();
+        var layers = new List<List<QuestDisplayModel>>();
+        for (int i = 0; i <= maxDepth; i++) layers.Add(new List<QuestDisplayModel>());
+
+        foreach (var kvp in depths)
+        {
+            if (questMap.TryGetValue(kvp.Key, out var q))
+            {
+                layers[kvp.Value].Add(q);
+            }
+        }
+
+        // Layout
+        double cardWidth = 220;
+        double xSpacing = 240; 
+        double startX = 50;
+        double startY = 50;
+
+        // Sort layers to minimize crossings (Barycenter method)
+        // Layer 0: Alphabetical
+        layers[0].Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
+
+        // Map QuestId to its horizontal index in the tree
+        var questXIndex = new Dictionary<string, int>();
+        for (int i = 0; i < layers[0].Count; i++)
+        {
+            questXIndex[layers[0][i].QuestId] = i;
+        }
+
+        for (int d = 1; d <= maxDepth; d++)
+        {
+            var layer = layers[d];
+            
+            // Calculate weight for each node based on parent positions
+            var weights = new Dictionary<string, double>();
+            foreach (var quest in layer)
+            {
+                double sumX = 0;
+                int count = 0;
+                foreach (var prereq in quest.Prerequisites)
+                {
+                    if (questXIndex.TryGetValue(prereq.QuestId, out int px))
+                    {
+                        sumX += px;
+                        count++;
+                    }
+                }
+                
+                weights[quest.QuestId] = count > 0 ? sumX / count : double.MaxValue;
+            }
+
+            // Sort by weight, then name
+            layer.Sort((a, b) =>
+            {
+                double wa = weights[a.QuestId];
+                double wb = weights[b.QuestId];
+                if (Math.Abs(wa - wb) < 0.001) return string.Compare(a.Name, b.Name, StringComparison.Ordinal);
+                return wa.CompareTo(wb);
+            });
+
+            // Update indices for next layer
+            for (int i = 0; i < layer.Count; i++)
+            {
+                questXIndex[layer[i].QuestId] = i;
+            }
+        }
+
+        // Calculate centering
+        var maxLayerCount = layers.Max(l => l.Count);
+        var maxLayerWidth = maxLayerCount * xSpacing;
+
+        // Calculate layer heights
+        var layerHeights = new Dictionary<int, double>();
+        for (int d = 0; d <= maxDepth; d++)
+        {
+            double maxHeight = 90; // Base height
+            foreach (var q in layers[d])
+            {
+                double h = EstimateNodeHeight(q);
+                if (h > maxHeight) maxHeight = h;
+            }
+            layerHeights[d] = maxHeight;
+        }
+
+        double currentY = startY;
+        double maxX = 0;
+        double maxY = 0;
+
+        for (int d = 0; d <= maxDepth; d++)
+        {
+            var layer = layers[d];
+            var currentLayerWidth = layer.Count * xSpacing;
+            var layerOffsetX = (maxLayerWidth - currentLayerWidth) / 2.0;
+
+            for (int i = 0; i < layer.Count; i++)
+            {
+                var quest = layer[i];
+                // Top -> Bottom: Y depends on depth (d), X depends on index (i)
+                var x = startX + layerOffsetX + i * xSpacing;
+                var y = currentY;
+
+                if (x + cardWidth > maxX) maxX = x + cardWidth;
+                if (y + EstimateNodeHeight(quest) > maxY) maxY = y + EstimateNodeHeight(quest);
+
+                TreeNodes.Add(new QuestTreeNode 
+                { 
+                    X = x, 
+                    Y = y, 
+                    Quest = quest 
+                });
+
+                // Add connections to prerequisites
+                foreach (var prereq in quest.Prerequisites)
+                {
+                    var pNode = TreeNodes.FirstOrDefault(n => n.Quest.QuestId == prereq.QuestId);
+                    if (pNode != null)
+                    {
+                        // Connect from Center of Parent Header to Top Center of Child
+                        // This ensures lines start at a stable position regardless of expansion
+                        // The line will be drawn BEHIND the parent card (if opaque)
+                        var startNodeX = pNode.X + cardWidth / 2;
+                        var startNodeY = pNode.Y + 45; // Center of header (90/2)
+                        
+                        var endNodeX = x + cardWidth / 2;
+                        var endNodeY = y; // Top of child
+
+                        var distY = endNodeY - startNodeY;
+                        var cp1X = startNodeX;
+                        var cp1Y = startNodeY + distY / 2;
+                        var cp2X = endNodeX;
+                        var cp2Y = endNodeY - distY / 2;
+
+                        TreeConnections.Add(new QuestTreeConnection
+                        {
+                            PathData = $"M {startNodeX},{startNodeY} C {cp1X},{cp1Y} {cp2X},{cp2Y} {endNodeX},{endNodeY}"
+                        });
+                    }
+                }
+            }
+            currentY += layerHeights[d] + 50; // Gap
+        }
+
+        TreeWidth = maxX + 100;
+        TreeHeight = maxY + 100;
+    }
+
+    private double EstimateNodeHeight(QuestDisplayModel q)
+    {
+        if (!q.IsExpanded) return 90;
+        
+        double h = 120; // Base expanded height (Header + Status + padding)
+        
+        if (!string.IsNullOrEmpty(q.Description)) h += 60; // Approx
+        
+        if (q.Objectives.Count > 0) 
+            h += 25 + q.Objectives.Count * 40; 
+            
+        if (q.RequiredItems.Count > 0)
+        {
+            h += 25; 
+            // Items are in WrapPanel. Width 220. Item width 130?
+            // In Tree view, maybe we should make items smaller or list them vertically?
+            // The list view uses 130px wide items. 220 width can fit 1 item per row.
+            h += q.RequiredItems.Count * 40; 
+        }
+        
+        if (q.RewardItems.Count > 0)
+        {
+             h += 25 + q.RewardItems.Count * 40;
+        }
+        
+        if (q.Prerequisites.Count > 0) h += 25 + q.Prerequisites.Count * 30;
+        if (q.Unlocks.Count > 0) h += 25 + q.Unlocks.Count * 30;
+        
+        return h;
+    }
+
+    private int CalculateDepth(string questId, Dictionary<string, QuestDisplayModel> questMap, Dictionary<string, int> depths, HashSet<string> visited)
+    {
+        if (depths.TryGetValue(questId, out var d)) return d;
+        if (!visited.Add(questId)) return 0; // Cycle detected
+
+        if (!questMap.TryGetValue(questId, out var quest)) return 0;
+
+        int maxPDepth = -1;
+        foreach (var p in quest.Prerequisites)
+        {
+            var pd = CalculateDepth(p.QuestId, questMap, depths, visited);
+            if (pd > maxPDepth) maxPDepth = pd;
+        }
+
+        var depth = maxPDepth + 1;
+        depths[questId] = depth;
+        visited.Remove(questId);
+        return depth;
     }
 
     private void NavigateToQuest(string questId)
@@ -299,11 +558,13 @@ internal partial class QuestDisplayModel : ObservableObject
 {
     private readonly UserProgressStore _progressStore;
     private readonly UserProgressState? _progressState;
+    private readonly IReadOnlyDictionary<string, ArcQuest> _questDefinitions;
 
-    public QuestDisplayModel(UserProgressStore progressStore, UserProgressState? progressState)
+    public QuestDisplayModel(UserProgressStore progressStore, UserProgressState? progressState, IReadOnlyDictionary<string, ArcQuest> questDefinitions)
     {
         _progressStore = progressStore;
         _progressState = progressState;
+        _questDefinitions = questDefinitions;
     }
 
     public string QuestId { get; set; } = string.Empty;
@@ -351,17 +612,53 @@ internal partial class QuestDisplayModel : ObservableObject
     {
         if (_progressState == null) return;
 
-        var quest = _progressState.Quests.FirstOrDefault(q => q.QuestId == QuestId);
-        if (quest == null)
+        var toComplete = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var stack = new Stack<string>();
+        stack.Push(QuestId);
+
+        while (stack.Count > 0)
         {
-            quest = new QuestProgressState { QuestId = QuestId };
-            _progressState.Quests.Add(quest);
+            var currentId = stack.Pop();
+            if (!toComplete.Add(currentId)) continue;
+
+            if (_questDefinitions.TryGetValue(currentId, out var def) && def.PreviousQuestIds != null)
+            {
+                foreach (var prevId in def.PreviousQuestIds)
+                {
+                    if (!string.IsNullOrWhiteSpace(prevId))
+                    {
+                        var prevQuestState = _progressState.Quests.FirstOrDefault(q => q.QuestId == prevId);
+                        if (prevQuestState == null || prevQuestState.Status != QuestProgressStatus.Completed)
+                        {
+                            stack.Push(prevId);
+                        }
+                    }
+                }
+            }
         }
 
-        quest.Status = QuestProgressStatus.Completed;
-        Status = QuestProgressStatus.Completed.ToString();
-        
-        await _progressStore.SaveAsync(_progressState, System.Threading.CancellationToken.None);
+        bool changed = false;
+        foreach (var qId in toComplete)
+        {
+            var quest = _progressState.Quests.FirstOrDefault(q => q.QuestId == qId);
+            if (quest == null)
+            {
+                quest = new QuestProgressState { QuestId = qId };
+                _progressState.Quests.Add(quest);
+            }
+
+            if (quest.Status != QuestProgressStatus.Completed)
+            {
+                quest.Status = QuestProgressStatus.Completed;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            Status = QuestProgressStatus.Completed.ToString();
+            await _progressStore.SaveAsync(_progressState, System.Threading.CancellationToken.None);
+        }
     }
 }
 
@@ -385,4 +682,16 @@ public class QuestReferenceViewModel
     public string Name { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public ICommand NavigateCommand { get; }
+}
+
+internal class QuestTreeNode
+{
+    public double X { get; set; }
+    public double Y { get; set; }
+    public QuestDisplayModel Quest { get; set; } = null!;
+}
+
+internal class QuestTreeConnection
+{
+    public string PathData { get; set; } = string.Empty;
 }

@@ -12,6 +12,8 @@
         ResizeMode="NoResize"
         WindowStyle="ToolWindow"
         ShowInTaskbar="False"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource TextBrush}"
         Loaded="OnWindowLoaded">
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -92,7 +94,7 @@
 
                         <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_QuestDetection]}"
                                   IsChecked="{Binding QuestDetectionEnabled}"
-                                  IsEnabled="{Binding AutoCaptureEnabled}"
+                                  IsEnabled="false"
                                   Margin="24,-4,0,4"/>
                         <CheckBox Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Settings_ProjectDetection]}"
                                   IsChecked="{Binding ProjectDetectionEnabled}"

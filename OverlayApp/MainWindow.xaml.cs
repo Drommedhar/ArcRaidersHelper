@@ -424,7 +424,7 @@ public partial class MainWindow : Window
         _hwndSource.AddHook(WndProc);
         _windowHandle = _hwndSource.Handle;
         _baseExtendedStyle = NativeWindowMethods.GetWindowLong(_windowHandle, NativeWindowMethods.GWL_EXSTYLE);
-        ApplyCaptureExclusion();
+       //ApplyCaptureExclusion();
         _hotkeyManager = new GlobalHotkeyManager(_hwndSource);
         RegisterHotkeys();
         SetClickThroughMode(_settings.ClickThroughEnabled);
@@ -602,7 +602,7 @@ public partial class MainWindow : Window
             _itemSlotDetectionService.UpdateArcData(snapshot);
             if (_autoCaptureActive)
             {
-                _questDetectionService.SetEnabled(_settings.QuestDetectionEnabled);
+                _questDetectionService.SetEnabled(/*_settings.QuestDetectionEnabled*/false);
                 _projectDetectionService.SetEnabled(_settings.ProjectDetectionEnabled);
                 _hideoutDetectionService.SetEnabled(_settings.HideoutDetectionEnabled);
                 _itemSlotDetectionService.SetEnabled(_settings.ItemDetectionEnabled);
@@ -832,6 +832,8 @@ public partial class MainWindow : Window
 
         _settings.ClickThroughEnabled = enabled;
 
+        _viewModel.SetClickThrough(enabled);
+
         ApplyOverlayAppearance(enabled);
         UpdateHeaderVisibility(enabled);
         ApplyTopmostSetting();
@@ -884,7 +886,7 @@ public partial class MainWindow : Window
         _settings.ClickThroughOverlayOpacity = updated.ClickThroughOverlayOpacity;
         _settings.ClickThroughEnabled = updated.ClickThroughEnabled;
         _settings.AutoCaptureEnabled = updated.AutoCaptureEnabled;
-        _settings.QuestDetectionEnabled = updated.QuestDetectionEnabled;
+        _settings.QuestDetectionEnabled = false;//updated.QuestDetectionEnabled;
         _settings.ProjectDetectionEnabled = updated.ProjectDetectionEnabled;
         _settings.HideoutDetectionEnabled = updated.HideoutDetectionEnabled;
         _settings.ItemDetectionEnabled = updated.ItemDetectionEnabled;
