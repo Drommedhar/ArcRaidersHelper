@@ -37,6 +37,11 @@ If click-through mode is activated on the quest view, the view will switch to a 
 
 ![Quest log view](images/image-1.png)
 
+### Items Database
+Find specific items in an easy to use items database view.
+
+![Items](images/database.png)
+
 ## Data & Attribution
 
 This project uses data provided by the community.
@@ -45,11 +50,6 @@ This project uses data provided by the community.
 - **Inspired by**: [arctracker.io](https://arctracker.io)
 
 All game content, including but not limited to game mechanics, items, names, and imagery, is copyright © Embark Studios AB. This repository is a community resource and is not affiliated with or endorsed by Embark Studios AB.
-
-### Items Database
-Find specific items in an easy to use items database view.
-
-![Items](images/database.png)
 
 ## Quick Start
 
