@@ -424,7 +424,7 @@ public partial class MainWindow : Window
         _hwndSource.AddHook(WndProc);
         _windowHandle = _hwndSource.Handle;
         _baseExtendedStyle = NativeWindowMethods.GetWindowLong(_windowHandle, NativeWindowMethods.GWL_EXSTYLE);
-       //ApplyCaptureExclusion();
+        ApplyCaptureExclusion();
         _hotkeyManager = new GlobalHotkeyManager(_hwndSource);
         RegisterHotkeys();
         SetClickThroughMode(_settings.ClickThroughEnabled);
