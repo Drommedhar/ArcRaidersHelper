@@ -10,431 +10,791 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
         <converters:ImagePathConverter x:Key="ImagePathConverter" />
-    </UserControl.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="16">
-            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Board]}"
-                       FontSize="26"
-                       FontWeight="Bold"
-                       Foreground="#F0FFFFFF"
-                       Margin="0,0,0,12" />
 
-            <!-- Filter Controls -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                <Button Command="{Binding SetFilterCommand}" CommandParameter="Available" Margin="0,0,8,0" Padding="12,6" BorderThickness="0">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Active]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                            <Setter Property="Background" Value="#22FFFFFF"/>
-                            <Setter Property="Foreground" Value="#AAFFFFFF"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SelectedFilter}" Value="Available">
-                                    <Setter Property="Background" Value="#FFC107"/>
-                                    <Setter Property="Foreground" Value="#111111"/>
-                                </DataTrigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Cursor" Value="Hand"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
+        <DataTemplate x:Key="QuestCardTemplate">
+            <Border Width="300"
+                    Margin="6"
+                    Padding="14"
+                    CornerRadius="14">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleExpandCommand}" />
+                </Border.InputBindings>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#2216212D" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Status}" Value="Completed">
+                                <Setter Property="Background" Value="#3325A85B" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Status}" Value="InProgress">
+                                <Setter Property="Background" Value="#331E5BFF" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Cursor" Value="Hand"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock Text="{Binding Name}"
+                                   FontWeight="SemiBold"
+                                   Foreground="#F0FFFFFF"
+                                   FontSize="16"
+                                   DockPanel.Dock="Left" />
+                    </DockPanel>
+                    <TextBlock Text="{Binding Trader}" Foreground="#AAFFFFFF" Margin="0,4,0,0" />
 
-                <Button Command="{Binding SetFilterCommand}" CommandParameter="Locked" Margin="0,0,8,0" Padding="12,6" BorderThickness="0">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Locked]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                            <Setter Property="Background" Value="#22FFFFFF"/>
-                            <Setter Property="Foreground" Value="#AAFFFFFF"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SelectedFilter}" Value="Locked">
-                                    <Setter Property="Background" Value="#FFC107"/>
-                                    <Setter Property="Foreground" Value="#111111"/>
-                                </DataTrigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Cursor" Value="Hand"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-
-                <Button Command="{Binding SetFilterCommand}" CommandParameter="Completed" Padding="12,6" BorderThickness="0">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Completed]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                            <Setter Property="Background" Value="#22FFFFFF"/>
-                            <Setter Property="Foreground" Value="#AAFFFFFF"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SelectedFilter}" Value="Completed">
-                                    <Setter Property="Background" Value="#FFC107"/>
-                                    <Setter Property="Foreground" Value="#111111"/>
-                                </DataTrigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Cursor" Value="Hand"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-            </StackPanel>
-
-            <ItemsControl x:Name="QuestsList" ItemsSource="{Binding Quests}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel IsItemsHost="True" Margin="-6" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Width="300"
-                                Margin="6"
-                                Padding="14"
-                                CornerRadius="14">
-                            <Border.InputBindings>
-                                <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleExpandCommand}" />
-                            </Border.InputBindings>
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background" Value="#2216212D" />
+                    <!-- Expanded Details -->
+                    <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,12,0,0">
+                        
+                        <!-- Prerequisites -->
+                        <StackPanel Margin="0,0,0,12">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Status}" Value="Completed">
-                                            <Setter Property="Background" Value="#3325A85B" />
+                                        <DataTrigger Binding="{Binding Prerequisites.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
                                         </DataTrigger>
-                                        <DataTrigger Binding="{Binding Status}" Value="InProgress">
-                                            <Setter Property="Background" Value="#331E5BFF" />
-                                        </DataTrigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Cursor" Value="Hand"/>
-                                        </Trigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Border.Style>
-                            <StackPanel>
-                                <DockPanel>
-                                    <TextBlock Text="{Binding Name}"
-                                               FontWeight="SemiBold"
-                                               Foreground="#F0FFFFFF"
-                                               FontSize="16"
-                                               DockPanel.Dock="Left" />
-                                    <Border DockPanel.Dock="Right"
-                                            Background="#33000000"
-                                            CornerRadius="8"
-                                            Padding="6,2"
-                                            HorizontalAlignment="Right">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Status}" Value="NotStarted">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <TextBlock Text="{Binding Status}" FontSize="12" Foreground="#F0FFFFFF" />
-                                    </Border>
-                                </DockPanel>
-                                <TextBlock Text="{Binding Trader}" Foreground="#AAFFFFFF" Margin="0,4,0,0" />
+                            </StackPanel.Style>
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_UnlockedBy]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding Prerequisites}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding NavigateCommand}" Margin="0,0,6,6" Padding="8,4" BorderThickness="0" Background="#22FFFFFF">
+                                            <Button.Resources>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="CornerRadius" Value="4"/>
+                                                </Style>
+                                            </Button.Resources>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
 
-                                <!-- Expanded Details -->
-                                <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,12,0,0">
+                        <!-- Unlocks -->
+                        <StackPanel Margin="0,0,0,12">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Unlocks.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Unlocks]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding Unlocks}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding NavigateCommand}" Margin="0,0,6,6" Padding="8,4" BorderThickness="0" Background="#22FFFFFF">
+                                            <Button.Resources>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="CornerRadius" Value="4"/>
+                                                </Style>
+                                            </Button.Resources>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Description -->
+                        <TextBlock Text="{Binding Description}" 
+                                   Foreground="#DDFFFFFF" 
+                                   FontSize="13" 
+                                   TextWrapping="Wrap" 
+                                   Margin="0,0,0,16" 
+                                   Visibility="{Binding Description, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}"/>
+
+                        <!-- Objectives -->
+                        <StackPanel Margin="0,0,0,16">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Objectives.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Objectives]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding Objectives}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="•" Foreground="#88FFFFFF" Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Description}" Foreground="#CCFFFFFF" TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Required Items -->
+                        <StackPanel Margin="0,0,0,16">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RequiredItems.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_RequiredItems]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding RequiredItems}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,4,4" Padding="4" Width="130">
+                                            <Border.InputBindings>
+                                                <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
+                                            </Border.InputBindings>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#11FFFFFF"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Cursor" Value="Hand"/>
+                                                            <Setter Property="Background" Value="#22FFFFFF"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="24" Height="24" Margin="0,0,8,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="10"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Rewards -->
+                        <StackPanel Margin="0,0,0,16">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RewardItems.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Rewards]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding RewardItems}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,4,4" Padding="4" Width="130">
+                                            <Border.InputBindings>
+                                                <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
+                                            </Border.InputBindings>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#11FFFFFF"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Cursor" Value="Hand"/>
+                                                            <Setter Property="Background" Value="#22FFFFFF"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="24" Height="24" Margin="0,0,8,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="10"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                    </StackPanel>
+                    
+                    <Button Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_MarkCompleted]}" 
+                            Command="{Binding CompleteQuestCommand}"
+                            Margin="0,8,0,0"
+                            Padding="8,4"
+                            Background="#33FFFFFF"
+                            Foreground="White"
+                            BorderThickness="0"
+                            Visibility="{Binding CanComplete, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+
+                    <TextBlock Text="{Binding Notes}"
+                               TextWrapping="Wrap"
+                               Foreground="#88FFFFFF"
+                               Margin="0,6,0,0"
+                               Visibility="{Binding Notes, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="TreeQuestCardTemplate">
+            <Border Width="220" CornerRadius="8" BorderThickness="1" Padding="10">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleExpandCommand}" />
+                </Border.InputBindings>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#FF16212D" />
+                        <Setter Property="BorderBrush" Value="#44FFFFFF" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Status}" Value="Completed">
+                                <Setter Property="Background" Value="#FF25A85B" />
+                                <Setter Property="BorderBrush" Value="#6625A85B" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Status}" Value="InProgress">
+                                <Setter Property="Background" Value="#FF1E5BFF" />
+                                <Setter Property="BorderBrush" Value="#661E5BFF" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Status}" Value="Locked">
+                                <Setter Property="Opacity" Value="0.6" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Cursor" Value="Hand"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F0FFFFFF" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                        
+                        <TextBlock Grid.Row="1" Text="{Binding Trader}" Foreground="#AAFFFFFF" FontSize="11" Margin="0,2,0,0" />
+                        
+                        <DockPanel Grid.Row="2" LastChildFill="False" Margin="0,4,0,0">
+                            <Button DockPanel.Dock="Right"
+                                    Command="{Binding CompleteQuestCommand}"
+                                    Content="✓"
+                                    Width="24" Height="24"
+                                    Background="#33FFFFFF" Foreground="White" BorderThickness="0">
+                                 <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" CornerRadius="12">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CanComplete}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                 </Button.Style>
+                            </Button>
+                        </DockPanel>
+                    </Grid>
+
+                    <!-- Expanded Details -->
+                    <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,12,0,0">
+                        
+                        <!-- Description -->
+                        <TextBlock Text="{Binding Description}" 
+                                   Foreground="#DDFFFFFF" 
+                                   FontSize="11" 
+                                   TextWrapping="Wrap" 
+                                   Margin="0,0,0,12" 
+                                   Visibility="{Binding Description, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}"/>
+
+                        <!-- Objectives -->
+                        <StackPanel Margin="0,0,0,12">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Objectives.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Objectives]}" Foreground="#FFB347" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding Objectives}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="•" Foreground="#88FFFFFF" Margin="0,0,8,0" FontSize="11"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Description}" Foreground="#CCFFFFFF" TextWrapping="Wrap" FontSize="11"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Required Items -->
+                        <StackPanel Margin="0,0,0,12">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RequiredItems.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_RequiredItems]}" Foreground="#FFB347" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding RequiredItems}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,4,4" Padding="4" Width="190">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="20" Height="20" Margin="0,0,8,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="10"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Rewards -->
+                        <StackPanel Margin="0,0,0,12">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RewardItems.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Rewards]}" Foreground="#FFB347" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding RewardItems}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,4,4" Padding="4" Width="190">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="20" Height="20" Margin="0,0,8,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="10"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- Standard View (List) -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ScrollViewer.Style>
+                <Style TargetType="ScrollViewer">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsClickThrough}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsTreeView}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ScrollViewer.Style>
+            <StackPanel Margin="16">
+                <DockPanel Margin="0,0,0,12">
+                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Board]}"
+                               FontSize="26"
+                               FontWeight="Bold"
+                               Foreground="#F0FFFFFF"
+                               DockPanel.Dock="Left"/>
+                    
+                    <Button Command="{Binding ToggleViewModeCommand}" 
+                            Content="Tree View" 
+                            DockPanel.Dock="Right" 
+                            HorizontalAlignment="Right"
+                            Padding="12,6"
+                            Background="#33FFFFFF"
+                            Foreground="White"
+                            BorderThickness="0">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </DockPanel>
+
+                <!-- Filter Controls -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <Button Command="{Binding SetFilterCommand}" CommandParameter="Available" Margin="0,0,8,0" Padding="12,6" BorderThickness="0">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Active]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="Foreground" Value="#AAFFFFFF"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedFilter}" Value="Available">
+                                        <Setter Property="Background" Value="#FFC107"/>
+                                        <Setter Property="Foreground" Value="#111111"/>
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <Button Command="{Binding SetFilterCommand}" CommandParameter="Locked" Margin="0,0,8,0" Padding="12,6" BorderThickness="0">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Locked]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="Foreground" Value="#AAFFFFFF"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedFilter}" Value="Locked">
+                                        <Setter Property="Background" Value="#FFC107"/>
+                                        <Setter Property="Foreground" Value="#111111"/>
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <Button Command="{Binding SetFilterCommand}" CommandParameter="Completed" Padding="12,6" BorderThickness="0">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Filter_Completed]}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="Foreground" Value="#AAFFFFFF"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedFilter}" Value="Completed">
+                                        <Setter Property="Background" Value="#FFC107"/>
+                                        <Setter Property="Foreground" Value="#111111"/>
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+
+                <ItemsControl x:Name="QuestsList" ItemsSource="{Binding Quests}" ItemTemplate="{StaticResource QuestCardTemplate}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel IsItemsHost="True" Margin="-6" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+
+                <TextBlock Text="{Binding EmptyMessage}"
+                           Foreground="#AAFFFFFF"
+                           FontStyle="Italic"
+                           Margin="0,12,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Tree View -->
+        <Grid>
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsClickThrough}" Value="False"/>
+                                <Condition Binding="{Binding IsTreeView}" Value="True"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            
+            <DockPanel Margin="16">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Board]}"
+                               FontSize="26"
+                               FontWeight="Bold"
+                               Foreground="#F0FFFFFF"
+                               DockPanel.Dock="Left"/>
+                    
+                    <Button Command="{Binding ToggleViewModeCommand}" 
+                            Content="List View" 
+                            DockPanel.Dock="Right" 
+                            HorizontalAlignment="Right"
+                            Padding="12,6"
+                            Background="#33FFFFFF"
+                            Foreground="White"
+                            BorderThickness="0">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </DockPanel>
+
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <!-- Connections -->
+                        <ItemsControl ItemsSource="{Binding TreeConnections}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <Canvas Width="{Binding TreeWidth}" Height="{Binding TreeHeight}"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Path Data="{Binding PathData}" Stroke="#44FFFFFF" StrokeThickness="2"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Nodes -->
+                        <ItemsControl ItemsSource="{Binding TreeNodes}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <Canvas Width="{Binding TreeWidth}" Height="{Binding TreeHeight}"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="ContentPresenter">
+                                    <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                                    <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ContentControl Content="{Binding Quest}" ContentTemplate="{StaticResource TreeQuestCardTemplate}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </ScrollViewer>
+            </DockPanel>
+        </Grid>
+
+        <!-- Tracker View (Click Through) -->
+        <Grid>
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsClickThrough}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            
+            <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="12">
+                    <TextBlock Text="Objectives" 
+                               Foreground="#FFD700" 
+                               FontSize="16" 
+                               FontWeight="Bold" 
+                               Margin="0,0,0,8">
+                        <TextBlock.Effect>
+                            <DropShadowEffect BlurRadius="2" ShadowDepth="1" Color="Black"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    
+                    <ItemsControl ItemsSource="{Binding ActiveQuests}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <Border Background="#FFD700" Width="16" Height="16" CornerRadius="8" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock Text="?" Foreground="Black" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Completed">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <Border Background="#AAFFFFFF" Width="16" Height="16" CornerRadius="8" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock Text="!" Foreground="Black" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Completed">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        
+                                        <TextBlock Text="{Binding Name}" Foreground="#FFD700" FontWeight="Bold" FontSize="14">
+                                            <TextBlock.Effect>
+                                                <DropShadowEffect BlurRadius="2" ShadowDepth="1" Color="Black"/>
+                                            </TextBlock.Effect>
+                                        </TextBlock>
+                                    </StackPanel>
                                     
-                                    <!-- Prerequisites -->
-                                    <StackPanel Margin="0,0,0,12">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Prerequisites.Count}" Value="0">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </StackPanel.Style>
-                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_UnlockedBy]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                        <ItemsControl ItemsSource="{Binding Prerequisites}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Button Command="{Binding NavigateCommand}" Margin="0,0,6,6" Padding="8,4" BorderThickness="0" Background="#22FFFFFF">
-                                                        <Button.Resources>
-                                                            <Style TargetType="Border">
-                                                                <Setter Property="CornerRadius" Value="4"/>
-                                                            </Style>
-                                                        </Button.Resources>
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11"/>
-                                                            <Border Background="#44000000" CornerRadius="4" Margin="6,0,0,0" Padding="4,0">
-                                                                <Border.Style>
-                                                                    <Style TargetType="Border">
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding Status}" Value="NotStarted">
-                                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </Border.Style>
-                                                                <TextBlock Text="{Binding Status}" Foreground="#AAFFFFFF" FontSize="10"/>
-                                                            </Border>
-                                                        </StackPanel>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-
-                                    <!-- Unlocks -->
-                                    <StackPanel Margin="0,0,0,12">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Unlocks.Count}" Value="0">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </StackPanel.Style>
-                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Unlocks]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                        <ItemsControl ItemsSource="{Binding Unlocks}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Button Command="{Binding NavigateCommand}" Margin="0,0,6,6" Padding="8,4" BorderThickness="0" Background="#22FFFFFF">
-                                                        <Button.Resources>
-                                                            <Style TargetType="Border">
-                                                                <Setter Property="CornerRadius" Value="4"/>
-                                                            </Style>
-                                                        </Button.Resources>
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11"/>
-                                                            <Border Background="#44000000" CornerRadius="4" Margin="6,0,0,0" Padding="4,0">
-                                                                <Border.Style>
-                                                                    <Style TargetType="Border">
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding Status}" Value="NotStarted">
-                                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </Border.Style>
-                                                                <TextBlock Text="{Binding Status}" Foreground="#AAFFFFFF" FontSize="10"/>
-                                                            </Border>
-                                                        </StackPanel>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-
-                                    <!-- Description -->
-                                    <TextBlock Text="{Binding Description}" 
-                                               Foreground="#DDFFFFFF" 
-                                               FontSize="13" 
-                                               TextWrapping="Wrap" 
-                                               Margin="0,0,0,16" 
-                                               Visibility="{Binding Description, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}"/>
-
-                                    <!-- Objectives -->
-                                    <StackPanel Margin="0,0,0,16">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Objectives.Count}" Value="0">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </StackPanel.Style>
-                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Objectives]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                        <ItemsControl ItemsSource="{Binding Objectives}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,2">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Text="•" Foreground="#88FFFFFF" Margin="0,0,8,0"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding Description}" Foreground="#CCFFFFFF" TextWrapping="Wrap"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-
-                                    <!-- Required Items -->
-                                    <StackPanel Margin="0,0,0,16">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding RequiredItems.Count}" Value="0">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </StackPanel.Style>
-                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_RequiredItems]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                        <ItemsControl ItemsSource="{Binding RequiredItems}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,4,4" Padding="4" Width="130">
-                                                        <Border.InputBindings>
-                                                            <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
-                                                        </Border.InputBindings>
-                                                        <Border.Style>
-                                                            <Style TargetType="Border">
-                                                                <Setter Property="Background" Value="#11FFFFFF"/>
-                                                                <Style.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter Property="Cursor" Value="Hand"/>
-                                                                        <Setter Property="Background" Value="#22FFFFFF"/>
-                                                                    </Trigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Border.Style>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="24" Height="24" Margin="0,0,8,0"/>
-                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                                                                <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="10"/>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-
-                                    <!-- Rewards -->
-                                    <StackPanel Margin="0,0,0,16">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding RewardItems.Count}" Value="0">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </StackPanel.Style>
-                                        <TextBlock Text="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_Rewards]}" Foreground="#FFB347" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                        <ItemsControl ItemsSource="{Binding RewardItems}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Background="#11FFFFFF" CornerRadius="4" Margin="0,0,4,4" Padding="4" Width="130">
-                                                        <Border.InputBindings>
-                                                            <MouseBinding MouseAction="LeftClick" Command="{Binding NavigateCommand}" />
-                                                        </Border.InputBindings>
-                                                        <Border.Style>
-                                                            <Style TargetType="Border">
-                                                                <Setter Property="Background" Value="#11FFFFFF"/>
-                                                                <Style.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter Property="Cursor" Value="Hand"/>
-                                                                        <Setter Property="Background" Value="#22FFFFFF"/>
-                                                                    </Trigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Border.Style>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <Image Source="{Binding ImageFilename, Converter={StaticResource ImagePathConverter}}" Width="24" Height="24" Margin="0,0,8,0"/>
-                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Name}" Foreground="#F0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                                                                <TextBlock Text="{Binding Quantity, StringFormat=x{0}}" Foreground="#AAFFFFFF" FontSize="10"/>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-
+                                    <ItemsControl ItemsSource="{Binding Objectives}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Description, StringFormat='- {0}'}" Foreground="White" FontSize="13" Margin="24,0,0,2" TextWrapping="Wrap">
+                                                    <TextBlock.Effect>
+                                                        <DropShadowEffect BlurRadius="2" ShadowDepth="1" Color="Black"/>
+                                                    </TextBlock.Effect>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    
+                                    <ItemsControl ItemsSource="{Binding RequiredItems}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Foreground="White" FontSize="13" Margin="24,0,0,2" TextWrapping="Wrap">
+                                                    <TextBlock.Effect>
+                                                        <DropShadowEffect BlurRadius="2" ShadowDepth="1" Color="Black"/>
+                                                    </TextBlock.Effect>
+                                                    <Run Text="- "/>
+                                                    <Run Text="{Binding Quantity}"/>
+                                                    <Run Text=" "/>
+                                                    <Run Text="{Binding Name}"/>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
-                                
-                                <Button Content="{Binding Source={x:Static infra:LocalizationService.Instance}, Path=[Quests_MarkCompleted]}" 
-                                        Command="{Binding CompleteQuestCommand}"
-                                        Margin="0,8,0,0"
-                                        Padding="8,4"
-                                        Background="#33FFFFFF"
-                                        Foreground="White"
-                                        BorderThickness="0"
-                                        Visibility="{Binding CanComplete, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Button.Resources>
-                                        <Style TargetType="Border">
-                                            <Setter Property="CornerRadius" Value="6"/>
-                                        </Style>
-                                    </Button.Resources>
-                                </Button>
-
-                                <TextBlock Text="{Binding Notes}"
-                                           TextWrapping="Wrap"
-                                           Foreground="#88FFFFFF"
-                                           Margin="0,6,0,0"
-                                           Visibility="{Binding Notes, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <TextBlock Text="{Binding EmptyMessage}"
-                       Foreground="#AAFFFFFF"
-                       FontStyle="Italic"
-                       Margin="0,12,0,0" />
-        </StackPanel>
-    </ScrollViewer>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
 </UserControl>

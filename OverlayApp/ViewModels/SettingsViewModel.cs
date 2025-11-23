@@ -21,7 +21,7 @@ public partial class SettingsViewModel : ObservableObject
         AlwaysOnTop = _workingCopy.AlwaysOnTop;
         ClickThroughEnabled = _workingCopy.ClickThroughEnabled;
         AutoCaptureEnabled = _workingCopy.AutoCaptureEnabled;
-        QuestDetectionEnabled = _workingCopy.QuestDetectionEnabled;
+        QuestDetectionEnabled = false;//_workingCopy.QuestDetectionEnabled;
         ProjectDetectionEnabled = _workingCopy.ProjectDetectionEnabled;
         HideoutDetectionEnabled = _workingCopy.HideoutDetectionEnabled;
         ItemDetectionEnabled = _workingCopy.ItemDetectionEnabled;

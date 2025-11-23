@@ -76,6 +76,14 @@ internal sealed partial class MainViewModel : ObservableObject
         IsBusy = isBusy;
     }
 
+    public void SetClickThrough(bool enabled)
+    {
+        foreach (var pane in NavigationItems)
+        {
+            pane.IsClickThrough = enabled;
+        }
+    }
+
     private void OnNeededItemNavigationRequested(string itemId)
     {
         SelectedNavigation = ItemsDatabase;
@@ -102,6 +110,9 @@ internal abstract partial class NavigationPaneViewModel : ObservableObject
 
     [ObservableProperty]
     private string _title = string.Empty;
+
+    [ObservableProperty]
+    private bool _isClickThrough;
 
     public string Icon { get; }
 
