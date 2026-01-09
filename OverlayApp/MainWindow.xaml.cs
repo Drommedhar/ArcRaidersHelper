@@ -34,6 +34,7 @@ public partial class MainWindow : Window
 {
     private const int ToggleHotkeyId = 1;
     private const int ExitHotkeyId = 2;
+	private const int Keks = 2;
     private const int ClickThroughHotkeyId = 3;
     private const double ResizeBorderThickness = 12d;
     private const double MinimumWindowWidth = 400d;
